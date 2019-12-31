@@ -1,0 +1,589 @@
+---
+title: "Wie funktioniert's?"
+author: "Daniel Voigt"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Wie funktioniert's?}
+  %\VignetteEngine{knitr::rmarkdown}
+  \usepackage[utf8]{inputenc}
+---
+
+```{r prep, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+
+library(dplyr)
+library(rktiq)
+
+set.seed(0)
+
+# Signal-Dataframe für Plots vorbereiten
+x <-
+  tibble::tibble(time = seq(lubridate::dmy_hm("01.03.16 00:00"),
+                            lubridate::dmy_hm("08.03.16 00:00"),
+                            by = "1 hour"),
+                 `011PE_BB35` = seq(1, -1, length.out = 24) %>% rep(7) %>% c(1),
+                 `011PE_BB05` = sin(1:169),
+                 `011PE_BB15` = rbinom(169, 1, prob = .2)) %>%
+  as_tiqqle("wide") %>%
+  as_long() %>%
+  sample_n(300) %>%
+  arrange(time)
+```
+
+# Einleitung
+
+Das vorliegende **rktiq**-Package ist eine Sammlung von Funktionen, mit denen
+Sensorsignale für maschinelles Lernen vorbereitet werden können. Aus Rohsignalen
+werden in einer Reihe von Verarbeitungsschritten Trainingsdaten erzeugt, mit
+deren Hilfe anchließend Klassifikations- und Regressionsmodelle trainiert
+werden. Mit diesen Modellen können bestimmte Ereignisse prognostiziert werden
+(*z.B. Störungen*). Neben den hierfür notwendigen Funktionen zum Datenimport,
+zur Datenvorbereitung und Merkmalsextraktion beinhaltet das Package ebenso
+Plotfunktionen zur Exploration der Daten.
+
+Die hier zusammengefassten Funktionen haben sich in verschiedenen ***Projekten**
+als nützlich erwiesen. Basierend auf den gesammelten Erfahrungen wurden die
+Funktionen durch Verallgemeinern und Modularisieren so gestaltet, dass sie auch
+auf andere Projekte und deren spezifische Signaltypen angewendet werden können.
+Aufgrund der Entstehungsgeschichte liegt der Anwendungsschwerpunkt allerdings im
+Bereich *Predictive Maintenance*.
+
+Um den Einstieg in die Verwendung des Packages zu erleichtern, soll in dieser
+Vignette ein kurzer Überblick über die einzelnen Funktionen und ihr
+Zusammenspiel gegeben werden. Implementierungsdetails sind in den entsprechenden
+Hilfeseite dokumentiert bzw. können anhand des (dokumentierten) Quellcodes
+nachvollzogen werden.
+
+Damit bei zukünftigen Analysen die passenden Funktionen leicht gefunden und
+zugeordnet werden können, wurde ein möglichst systematisches und
+selbsterklärendes Namensschema im Package verwendet. So fangen bspw. alle
+Plotfunktionen mit **plot_\***, alle Ereignisfunktionen mit **event_\*** und
+alle Fensterfunktionen mit **window_\*** an.
+
+# Signale einlesen
+
+Das Package binden wir durch folgenden Befehl in die aktuelle R-Session ein:
+```{r setup, eval=FALSE, message=FALSE}
+library(rktiq)
+```
+
+Beim Einlesen der Signale wird davon ausgegangen, dass die Rohdaten bereits
+sauber aus den ursprünglichen Datenquellen eingelesen und geeignet
+zusammengefasst wurden. Spezielle **Ingest-Funktionen** für diesen Zweck sind im
+Package nicht enthalten. Dies hat den Grund, dass in Analyseprojekten in der
+Regel die verwendeten Speichersysteme, Formate und Verzeichnisstrukturen sehr
+individuell sind. Eine allgemeingültige Ingest-Prozedur zu definieren, die
+allgemein genug ist, um die Vielzahl dieser Fälle abzubilden, und trotzdem
+einfach zu verwenden ist, ist ein eher unrealistisches Vorhaben. Von daher
+muss dieser Part projektspezifisch selbst implementiert werden.
+
+Um vom **rktiq**-Package gelesen werden zu können, müssen die vorbereiteten
+Signalrohdaten **in einem Dataframe** zusammengefasst sein, welcher ein **langes
+Format** aufweist. Dieses Format zeichnet sich dadurch aus, dass mindestens eine
+Spalte mit Zeitinformationen (*d.h. Zeitstempel der Messung*), mindestens eine
+Spalte mit Signal-ID (*d.h. Name des gemessenen Sensors*) sowie mindestens eine
+Spalte mit Signalwert (*d.h. numerischer Messwert*) vorhanden ist. Bei Vorliegen
+dieser Datenstruktur könnenn wir die Signaldaten mittels der
+``harmonize()``-Funktion in das interne Standardformat überführen. Dieses als
+**Tiqqle** bezeichnete Format ist im Grunde ein standardisierter Dataframe
+(*bzw. Tibble*) mit zusätzlichen Attributen, die die interne Verarbeitung der
+Daten erleichtern.
+
+# Signale vorbereiten
+
+Nach dem Import der Daten können verschiedene Transformationen mit ihnen
+durchgeführt werden, um sie aufzuräumen und für die nachfolgende Exploration und
+Merkmalsberechnung vorzubereiten.
+
+## Signale schneiden
+
+Ein erster Schritt hierbei kann das Schneiden der Signale sein. Dabei werden die
+vorhandenen Daten zeitbasiert gefiltert und somit in kleinere Signalabschnitte
+unterteilt. Dafür können wir den Start- und Endzeitpunkt des auszuschneidenden
+Abschnitts an die Funktion ``crop()`` übergeben:
+
+```{r crop, eval=FALSE}
+crop(x,
+     start = lubridate::dmy_hm("01.03.16 00:00"),
+     end   = lubridate::dmy_hm("08.03.16 00:00"))
+```
+
+Der resultierende Dataframe beinhaltet dann den Signalausschnitt, der zwischen
+den beiden angegebenen Zeitpunkten liegt. Mithilfe von weiteren Argumenten
+können wir das zusätzliche Auffüllen von Messpunkten am Anfang und Ende des
+Abschnitts steuern. Durch Übergabe von Zeitstempel-Vektoren werden mehrere
+Abschnitte gleichzeitig ausgeschnitten.
+
+## Signale reduzieren
+
+Gemessene Signalwerte beinhalten unter Umständen redundante Informationen. Dies
+können bspw. sich wiederholende Messwerte sein, bei denen bei
+aufeinanderfolgenden Messzeitpunkten keine Veränderung des Sensorwerts
+aufgetreten ist. In diesem Fall würde es ausreichen, einen Messwert nur dann zu
+speichern, wenn er sich tatsächlich vom vorherigen unterscheidet. Ein Messwert
+wird hierbei solange implizit als unverändert angenommen, bis eine explizite
+Wertänderung verzeichnet ist (*Last observation carried forward*). Um ein Signal
+derart zu reduzieren, dass nur relevante Änderungen des Signalwerts beibehalten
+werden, verwenden wir die Funktion ``condense()``.
+
+Ein Extremfall von redundanten Informationen sind Signale, für die im gesamten
+Zeitraum nur ein einziger Messwert registriert wurde. Diese Signale sind für die
+Merkmalsextraktion höchstwahrscheinlich irrelevant und sollte daher nicht weiter
+betrachtet werden. Konstante Signale werden mit der Funktion
+``remove_constant()`` vollständig aus dem Dataframe entfernt.
+
+## Signale transformieren
+
+Zur besseren Verarbeitbarkeit und Vergleichbarkeit der Signale können wir neben
+der Entfernung von redundanten Messwerten weitere Transformationen mit ihnen
+durchführen. Die erste Transformation mittels der Funktion ``limit()``
+ermöglicht die Bereinigung eines Signals um einen bestimmten Offset-Wert:
+
+```{r limit, eval=FALSE}
+limit(x,
+      which = "011PE_BB35",
+      value_before = 57)
+```
+
+Hierbei wird standardmäßig von allen ursprünglichen Messwerten eines Signals ein
+konstanter numerischer Wert abgezogen. Mit den zusätzlichen Argumenten **when**,
+**value_before** und **value_after** wird ein einmaliger Wechsel des
+Offset-Werts im Zeitraum ermöglicht. Dies kann bspw. bei der Detektion von
+Unter-/Überschreitungen von Schwellwerten für ein Signal hilfreich sein.
+
+Um verschiedene Wertebereiche von Signalmesswerten innerhalb eines Dataframes zu
+vereinheitlichen, können wir die Funktion ``normalize()`` einsetzen. Diese
+normiert jedes Einzelsignal so, dass alle Messwerte innerhalb eines vorgegebenen
+Wertebereichs liegen (z.B. im Intervall [0, 1]):
+
+```{r normalize, eval=FALSE}
+normalize(x,
+          min = 0,
+          max = 1)
+```
+
+Durch Anpassung der Argumente **min** und **max** können wir den Wertebereich
+entsprechend anpassen. Diese Normalisierung kann insbesondere für die Berechnung
+von Merkmalen und zum Plotten von Signalen nützlich sein.
+
+## Zeitinformationen verändern
+
+Zusätzlich zur Anpassung der Messwerte eines Signals können ebenso dessen
+Zeitinformationen angepasst werden. Dies bedeutet nicht, dass nur die
+vorhandenen Zeitstempel verändert werden (z.B. zeitlichen Offset hinzufügen).
+Sondern vielmehr, dass zeitliche Intervalle aggregiert, für einzelne Signale
+fehlende Zeitstempel eingefügt und evtl. vorhandene zeitliche "Lücken" mit
+Messwerten aufgefüllt werden können. Während im erstgenannten Fall ein vom
+Originalverlauf abweichendes Signal entstehen kann, wird er bei den beiden
+anderen Zeitoperationen nicht verändert.
+
+Die zeitliche Aggregation von Messwerten kann durch die Funktion ``thicken()``
+ausgeführt werden. Die Aggregation eines Signals in 1-Minuten-Intervalle
+erreichen wir durch:
+
+```{r thicken, eval=FALSE}
+thicken(x,
+        interval_sec = 60)
+```
+
+Standardmäßig wird hierbei derjenige Messwert beibehalten, der als erstes im
+jeweiligen Intervall auftritt. Durch Anpassung des **fun**-Arguments können aber
+auch andere Methoden umgesetzt werden (z.B. Mittelwertbildung).
+
+Für den Fall, dass für einzelne Signale eines Dataframes Messwerte zu
+unterschiedlichen Zeitpunkten aufgezeichnet wurden (nämlich immer dann, wenn
+eine Wertänderung des jeweiligen Sensors verzeichnet wurde), können wir mit der
+Funktion ``regularize()`` für jeden auftretenden Zeitstempel einen
+entsprechenden Messpunkt für jedes Signal hinzufügen. Somit existiert danach für
+jeden Zeitstempel dieselbe Anzahl an Messwerten, welche der Anzahl der
+auftretenden Signale entspricht.
+
+Darüber hinaus kann mit derselben Funktion ``regularize()`` die Umwandlung eines
+Signals mit irregulärer Abtastung (d.h. mit zeitlichen "Lücken") in ein Signal
+mit regulärer Abstastung (Resampling) ausgeführt werden. Ensprechend der
+kleinsten im Signal auftretenden Abtastintervalle werden die Lücken aufgefüllt.
+Da bei diesem Vorgehen unbeabsichtigt sehr kleine Abtastintervalle für die
+Signale erzeugt werden können (und somit u.U. der verfügbare Arbeitsspeicher
+nicht mehr ausreicht), sollten wir vor Anwendung der Regularisierungsfunktion
+zunächst eine definierte zeitliche Abtastrate sicherstellen:
+
+```{r regularize, eval=FALSE}
+x %>%
+  thicken(interval_sec = 60) %>%
+  regularize()
+```
+
+Mit dem zugehörigen Argument **fill_gap** können wir das Auffüllen der Messwerte
+der neu entstehenden Abtastpunkte steuern, da diese zunächst mit *NA*-Werten
+initialisiert werden. Insgesamt kann die Funktion ``regularize()`` als
+Gegenstück zur o.g. Funktion ``condense()`` angesehen werden, da sie dem
+Dataframe redundante Signalinformationen hinzufügt.
+
+# Signale plotten
+
+Zur Visualisierung von Signalen werden im Package drei verschiedene Funktionen
+bereitgestellt. Je nachdem wie umfangreich die darzustellenden Signale sind
+(d.h. Anzahl Signale, Zeitraum), eignet sich ein bestimmter Plottyp u.U. besser
+als ein anderer. Die verfügbaren Funktionen liefern jeweils ein
+**ggplot2**-Objekt mit einfachem Layout zurück, das ggf. weiter angepasst werden
+kann.
+
+Der einfachste Signalplot besteht in einer Liniendarstellung der Messwerte über
+die Zeit mittels der Funktion ``plot_stacked()``. Dabei werden für ein Signal
+die Zeitstempel auf der X-Achse und die zugehörigen Messwerte aus der Y-Achse
+dargestellt. Aufeinanderfolgende Messwerte werden durch eine
+treppenstufenförmige Linie verbunden, die solange horizontal verläuft bis der
+nächste Messwert erreicht wird (*s. nachfolgende Abbildung 1*). Mehrere Signale
+werden durch Überlagerung im selben Plotbereich dargestellt und lediglich durch
+ihre Farbe gekennzeichnet. Durch Anpassung des Arguments **has_legend** können
+wir eine zusätzliche Legende einblenden, welche die Farbzuordnung erläutert.
+
+```{r plot_stacked, echo=FALSE, fig.width=7, fig.align='left', fig.cap="Abbildung 1: Signaldarstellung mit plot_stacked()"}
+plot_stacked(x,
+             has_legend = TRUE) 
+```
+
+Eine Erweiterung des vorherigen Plots ist die Funktion ``plot_spread()``. Sie
+erzeugt ebenso für jedes Signal einen Linienplot, allerdings wird jedes Signal
+in einen separaten Plotbereich gezeichnet (Facet). Zur besseren Darstellung (und
+Vergleichbarkeit) können diese Plotbereiche in einer Tabellenform mit Zeilen und
+Spalten angeordnet werden. Standardmäßig werden hier alle Signalplots
+untereinander in einer einzigen Spalte angeordnet (*s. nachfolgende Abbildung
+2*). Mit den Argumenten **nrow** und **ncol** können wir die Größe der
+zugrundeliegenden Tabelle jedoch verändern.
+
+```{r plot_spread, echo=FALSE, fig.width=7, fig.align='left',fig.cap="Abbildung 2: Signaldarstellung mit plot_spread()"}
+plot_spread(x) 
+```
+
+Die dritte Visualisierungsfunktion ``plot_checkered()`` stellt einen Plottyp für
+Signale zur Verfügung, bei der die Darstellung um eine weitere Dimension
+erweitert wird. Auf der X-Achse werden wie gehabt die Zeitstempel dargestellt,
+auf der Y-Achse nun allerdings die Signale (eine Zeile pro Signal) und als
+farbliche Information auf den Kreuzungspunkte den jeweiligen Messwert. Diese
+Darstellungsform wird auch als Heatmap bezeichnet (*s. nachfolgende Abbildung
+3*). Mittels dem Argument **has_legend** lässt sich dem Plot eine Legende
+hinzufügen, die Aufschluss über die verwendete Messwert-Farb-Zuordnung gibt.
+Damit aussagekräftige Plots entstehen, kann es u.U. sinnvoll sein, die Signale
+vorher mittels ``normalize()`` zu vereinheitlichen (s.o.).
+
+```{r plot_checkered, echo=FALSE, fig.width=7, fig.align='left', fig.cap="Abbildung 3: Signaldarstellung mit plot_checkered()"}
+x %>%
+  plot_checkered(has_legend = TRUE) 
+```
+
+# Ereignisse bestimmen
+
+Um in den Signalen relevante Veränderungen und Ereignisse zu bestimmen, die für
+das spätere maschinelle Lernen von Interesse sind (z.B. Störungen, Trends),
+werden im Package eine Reihe von ereignisbasierten Funktionen bereitgestellt.
+Diese werden in den folgenden Abschnitten näher erläutert und lassen sich grob
+in drei Bereiche einteilen: die Detektion, das Einlesen und das Auswählen von
+Ereignissen (Sampling).
+
+## Ereignisse detektieren
+
+Im Mittelpunkt steht hierbei die Idee, Ereignisse anhand der in den Signalen
+verfügbaren Informationen zu bestimmen. Dies können bspw. Zeitpunkte sein, an
+denen das Signal zulässige Grenzwerte über-/unterschreitet oder bestimmte
+interessante Signalwerte vorliegen. Hierfür können wir die Funktion
+``event_detect()`` einsetzen:
+
+```{r event_detect, eval=FALSE}
+event_detect(x,
+             which = c("011PE_BB05", "011PE_BB15"),
+             op = `<`,
+             test_value = 0)
+```
+
+Neben dem Signal-Dataframe **x** bekommt sie einen Stringvektor **which**
+übergeben, der die zu berücksichtigenden Signalnamen enthält. Die zugehörige
+Testbedingung wird anhand der Argumente **op** und **test_value** beschrieben.
+Während erstgenanntes eine Funktion ist, die zum Testen verwendet wird,
+entspricht letzterem der zu testende Signalwert.
+
+Mit der vorgestellten Funktion können wir einzelne Signalereignisse finden, d.h.
+Zeitpunkte zu denen die Testbedingung erstmalig eingetreten ist. Diese
+Ereignisse besitzen ausschließlich einen Startzeitpunkt. Zur Bestimmung von
+Ereignissen, die einen Start- und einen Endzeitpunkt besitzen, kann die Funktion
+``event_match_seq()`` eingesetzt werden. Hierbei wird zunächst mittels
+``event_detect()`` die Menge der Startereignisse detektiert und anschließend
+durch wiederholte Anwendung der Funktion die Menge der Endereignisse. Mithilfe
+der Funktion ``event_match_seq()`` können wir dann eine zeitliche Verbindung
+zwischen den beiden Ereignismengen herstellen:
+
+```{r event_match, eval=FALSE}
+start <- event_detect(x,
+                      which = c("011PE_BB05", "011PE_BB15"),
+                      op = `<`,
+                      test_value = 0)
+
+end <- event_detect(x,
+                    which = c("011PE_BB05", "011PE_BB15"),
+                    op = `>=`,
+                    test_value = 0)
+
+event_match_seq(start, end)
+```
+
+Dabei wird jedem Startereignis aus **start** ein passendes Endereignis aus
+**end** zugeordnet, indem deren zeitliche Nähe als Indikator für deren
+Zusammengehörigkeit herangezogen wird. Mit den Argumenten **time_var_x** und
+**time_var_y** kann der jeweilige Spaltenname mit der Zeitinformation angepasst
+werden. Mittels **is_renamed** kann die Benennung des Ergebnis-Dataframes
+beeinflusst werden. Mit **remove_na** können wir fehlende Einträge im Ergebnis
+vermeiden, d.h. Ereignisse, denen kein passendes Gegenstück zugeordnet werden
+konnte. Ein komplexerer Ansatz zur Ereigniszuordnung ist in der Funktion
+``event_match_frequent()`` implementiert. Details hierzu können in der
+dazugehörigen Hilfeseite nachgelesen werden.
+
+## Ereignisse einlesen
+
+Neben der beschriebenen signalbasierten Ermittlung von Ereignissen, können bei
+deren Detektion ebenso "externe" Faktoren eine Rolle spielen. Hierbei werden die
+Ereignisse von Systemen generiert, welche die Signale nicht direkt überwachen,
+sondern den Gesamtzustand des technischen Systems bzw. dessen Umwelt
+berücksichtigen. Dies können bspw. Alarmmeldungen von Maschinen sein, manuell
+hinzugefügte Ereignisse oder Ereignisse, die auf zusätzlichen Daten basieren.
+
+Da diese Ereignisse nicht direkt aus den Signalen abgeleitet werden können,
+bietet das Package eine Funktion ``harmonize_event()``, um extern
+bereitgestellte Ereignisse einzulesen bzw. in das standardisierte Format zu
+überführen. Analog zum Einlesen von Signalen (s.o.) obliegt das Schreiben
+geeigneter **Ingest-Funktionen** den Anwendern. Das Standardformat von
+Ereignis-Dataframes umfasst im Grunde nur einen Start- und Endzeitpunkt.
+Zusätzliche ereignisbezogene Informationen werden in Zusatzspalten gespeichert,
+über die der Dataframe bei Bedarf gefiltert werden kann.
+
+## Ereignisse auswählen
+
+Eine weitere Möglichkeit, Ereignisse zu bestimmen, besteht darin, innerhalb einer
+gegebenen Zeitspanne zufällig Ereignisse auszuwählen bzw. zu platzieren. Dies
+spielt beim maschinellen Lernen insbesondere bei der Erzeugung von Trainings-
+und Testdaten eine Rolle. Hierbei werden bestimmte zeitliche Ausschnitte der
+Signale (Fenster) zur Merkmalsextraktion herangezogen, die jeweils einen Start-
+und einen Endzeitpunkt besitzen.
+
+Um zu diesem Zweck geeignete zufällige Stichproben der Ereignisse zu ziehen,
+werden insgesamt vier Funktionen bereitgestellt: ``sample_random()`` und
+``sample_random_sequential()`` sowie ``sample_balanced()`` und
+``sample_balanced_sequential()``. Anhand der Namen lässt sich bereits erkennen,
+dass sie ähnliche Aufgaben bewältigen. Während die ersten beiden Funktionen ein
+zufälliges Sampling durchführen, wird bei den letzten beiden Funktionen eine
+gewisse Klassenverteilung (hinsichtlich einer Menge von Zielereignissen)
+berücksichtigt. Die mit ``*_sequential()`` benannten Funktionen stellen jeweils
+Implementierungsvarianten der Grundfunktionen dar. Details hierzu finden wir in
+der jeweiligen Hilfeseite.
+
+### Zufälliges Sampling
+
+Die beiden ``*_random_*``-Funktionen bestimmen in einem Zeitraum zufällig eine
+feste Menge an Ereignissen. Hierbei übergeben wir neben der Anzahl der
+Ereignisse und dem zu betrachtenden Zeitintervall noch die gewünschte
+Ereignislänge:
+
+```{r sample_random, eval=FALSE}
+sample_random(n = 100,
+              int_start = lubridate::dmy_hm("01.03.16 00:00"),
+              int_end   = lubridate::dmy_hm("08.03.16 00:00"),
+              event_length_in_sec = 60)
+```
+
+Mit dem zugehörigen Argument **offtime** können wir zusätzlich einen
+Ereignis-Dataframe übergeben, der Zeitfenster innerhalb des Gesamtzeitraums
+beinhaltet, aus denen keine Ereignis-Stichproben gezogen werden dürfen. Dies
+können bspw. Zeitabschnitte sein, in den bekannterweise unzuverlässige Signale
+gemessen wurden. Durch das Argument **event_overlap_in_sec** wird die
+potentielle zeitliche Überlappung zwischen Ereignissen gesteuert. Mit dem
+weiteren Argument **.seed** kann die Reproduzierbarkeit der zufälligen
+Stichproben abgesichert werden.
+
+### Klassenbalanciertes Sampling
+
+Die beiden ``*_balanced_*``-Funktionen bestimmen ebenfalls in einem Zeitraum
+zufällig eine feste Menge an Ereignissen. Allerdings wird hierbei zusätzlich
+eine Menge an Zielereignissen herangezogen, um möglichst ausgewogene Stichproben
+an Ereignissen zu erhalten. Diese Zielereignisse können beispielsweise Störungen
+oder Alarme sein. Für den Aufbau eines entsprechenden Prognosemodells werden
+möglichst klassenbalancierte Trainingsdaten benötigt, bei denen in etwa gleich
+viele positive und negative Trainingsfenster vorliegen. Positive Beispiele sind
+in diesen Zusammenhang Fenster, die im Vorfeld eines Zielevents liegen (mit
+einer gewissen zeitlichen Nähe). Negative Beispiele befinden sich entsprechend
+zeitlich weit von Zielereignissen entfernt.
+
+Das klassenbalancierte Sampling stoßen wir analog zum zufälligen Sampling an:
+
+```{r sample_balanced, eval=FALSE}
+target <-
+  tibble::tribble(
+    ~start, ~end,
+    lubridate::dmy_hm("03.03.16 09:51"), lubridate::dmy_hm("03.03.16 10:13"),
+    lubridate::dmy_hm("07.03.16 23:07"), lubridate::dmy_hm("07.03.16 23:48")
+  )
+
+sample_balanced(n = 100,
+                int_start = lubridate::dmy_hm("01.03.16 00:00"),
+                int_end   = lubridate::dmy_hm("08.03.16 00:00"),
+                target_event = target,
+                target_cut_in_sec = 3600,
+                event_length_in_sec = 60)
+```
+
+Zusätzlich wird mittels des Arguments **target_event** ein Ereignis-Dataframe
+übergeben, der die zu Zielereignisse beinhaltet. Durch **target_cut_in_sec**
+können wir den vor einem Zielereignis liegenden Zeithorizont beeinflussen, der
+zur Unterscheidung von positiven und negativen Beispiele herangezogen wird.
+Analog zum zufälligen Sampling gibt es die Argumente **offtime**,
+**event_overlap_in_sec** und **.seed**, mit denen sich das jeweilige Verhalten
+der Funktion anpassen lässt.
+
+# Signalfenster vorbereiten
+
+Mithilfe der zuvor bestimmten Ereignisse wollen wir die zugrundeliegenden
+Signale so vorbereiten, dass daraus beschreibende Merkmale abgeleitet werden
+können. Hierbei können drei Verarbeitungsschritte stattfinden: das Schneiden,
+das Korrigieren und das Zusammenfassen von Signalfenstern.
+
+## Fenster schneiden
+
+Analog zur weiter oben eingeführten Funktion ``crop()`` kann mittels der
+Funktion ``window_crop()`` für eine Ereignismenge die zugehörigen Signalfenster
+zurechtgeschnitten werden:
+
+```{r window_crop, eval=FALSE}
+event <-
+  tibble::tribble(
+    ~start, ~end,
+    lubridate::dmy_hm("03.03.16 09:51"), lubridate::dmy_hm("03.03.16 10:13"),
+    lubridate::dmy_hm("07.03.16 23:07"), lubridate::dmy_hm("07.03.16 23:48")
+  )
+
+window_crop(x,
+            start = event$start,
+            end   = event$end)
+```
+
+Dabei erzeugen wir für jedes Ereignis aus **event** einen zugehörigen
+Signal-Dataframe, der einen entsprechenden zeitlichen Ausschnitt der Signaldaten
+umfasst. Die resultierenden Signalfenster werden als Liste zurückgegeben.
+
+## Fenster korrigieren
+
+Durch das Schneiden der Signalfenster kann es sein, dass die enthaltenen
+zeitlichen Informationen angepasst werden müssen. Auf diese Weise können wir
+fensterübergreifende Vergleichbarkeit sicherstellen, die für die nachfolgende
+Merkmalsberechnung wichtig sein kann.
+
+Eine erste Anpassung kann darin bestehen, mit der Funktion ``window_align()``
+die Signalfenster zeitlich auszurichten. Hierbei werden die absoluten in
+relative Zeitinformationen überführt, sodass alle Fenster denselben
+Startzeitpunkt aufweisen. Als zweite Korrektur kann mit der Funktion
+``window_stretch()`` die Länge der Signalfenster vereinheitlicht werden. Dabei
+steuern wir mittels des Arguments **max_in_sec** den neuen gemeinsamen letzten
+Zeitstempel der Signalfenster. Alle anderen davorliegenden Zeitstempel werden
+entsprechend angepasst, ihre relativen Positionen zueinander bleiben erhalten.
+Die dritte Art der zeitlichen Anpassung von Signalfenstern ist mit
+``window_truncate()`` möglich. Diese Funktion beschneidet die Menge der
+Signalfenster auf die Länge des kürzesten Signalfensters, d.h. Informationen
+können hierbei verlorengehen.
+
+## Fenster zusammenfassen
+
+Durch Verkettung der verschiedenen Funktionen zur Fensterkorrektur können wir
+einheitliche Signalfenster herstellenn, deren Zeitinformation gut miteinander
+kombinierbar ist Auf diese Weise können die Signale verschiedener Signalfenster
+zusammengefasst werden. Zur Aggregation kann die Funktion ``window_merge()``
+eingesetzt werden. Neben der Liste der zusammenzufassenden Signalfenster können
+wir im Argument **fun** eine spezielle Verschmelzungsfunktion übergeben, welche
+die Signalwerte gleicher Zeitpunkte zusammenfasst. Der Default-Wert bei der
+Verschmelzung ist die Funktion ``mean()``, d.h. die Signale werden gemittelt.
+
+# Merkmale berechnen
+
+Abschließend können wir aus den vorbereiteten Signalfenstern nun eine Reihe von
+beschreibenden Merkmalen extrahieren. Diese Merkmale (*oder auch Features*)
+beinhalten eine kompakte numerische Repräsentation der Signalverläufe der
+Sensordaten. Kombinieren wir diese Merkmale mit der entsprechenden
+Klasseninformation (*also bspw. ob innerhalb eines gegebenen Zeithorizonts nach
+dem Signalfenster eine Störung auftritt oder nicht*), so erhalten wir
+potentielle Trainingsdaten für maschinelle Lernverfahren. Diese Algorithmen sind
+in der Lage, statistische Muster in den Daten in Form von mathematischen
+Modellen zu erfassen, die wiederum für Prognosezwecke eingesetzt werden können.
+
+Mit der Funktion ``feature_all()`` können wir zunächst die Menge der verfügbaren
+Merkmalstypen abfragen:
+
+```{r feature_all}
+feature_all()
+```
+
+Die Berechnungsdetails der `r length(feature_all()) - 1` unterschiedlichen
+Merkmalstypen können in der jeweiligen Hilfeseite nachgeschlagen werden, z.b.
+durch ``?fit_linear``. Mit der Funktion ``feature()`` können wir nun für eine
+Menge von Signalfenstern die entsprechenden beschreibenden Merkmale berechnen:
+
+```{r feature, eval=FALSE}
+feat <-
+  feature(x,
+          feat = list("stat" = list(),
+                      "hist_equi" = list("nr_bins" = 3,
+                                         "is_relative" = FALSE)))
+```
+
+Neben der per **x** übergebenen Liste mit vorbereiteten Signalfenstern wird
+durch das Argument **feat** die Menge der zu berechnenden Merkmalstypen in einer
+benannten Liste festgelegt und geeignet parametriert. Die Auswahl der
+Merkmalstypen geschieht hierbei durch den Namen des jeweiligen Listenelements,
+also im obigen Beispiel *"stat"* und *"hist_equi"*. Die zugehörigen Argumente
+werden wiederum in einer benannten Liste übergeben, also *"nr_bins"* und
+*"is_relative"* für den Merkmalstyp *"hist_equi"*. Sollten keine weiteren
+Argumente für den ausgewählten Merkmalstyp existieren bzw. wird die Berechnung
+mit den entsprechenden Default-Werten gewünscht, so können wir an dieser Stelle
+eine leere Liste übergeben (siehe Merkmalstyp *"stat"* oben).
+
+Standardmäßig liefert die Funktion ``feature()`` einen Merkmals-Dataframe im
+breiten Format zurück, der die fensterweise berechneten Einzelmerkmale
+beinhaltet. Mittels der zusätzlichen Argumente **as_df** und **as_wide** können
+wir den Typ und das Format der zurückgegebenen Datenstruktur anpassen. Per
+weiterem Argument **add_id** kann das Hinzufügen einer Fenster-ID gesteuert
+werden.
+
+## Klasseninformation hinzufügen
+
+Der resultierende Merkmals-Dataframe kann direkt als Grundlage für
+anschließendes maschinelles Lernen verwendet werden. Die hierfür benötigte
+Klasseninformation können wir mit der Funktion ``event_target()`` herleiten und
+dann mit den Merkmalen verknüpfen:
+
+```{r event_target, eval=FALSE}
+
+class <-
+  event_target(x,
+               target_event = target,
+               target_cut_in_sec = 3600)
+
+feat <- dplyr::mutate(feat,
+                      label = class$label)
+```
+
+Für eine Ereignismenge **x** mit den zugrundeliegenden zeitlichen Positionen der
+Signalfenster wird unter Zuhilfenahme einer Zielereignismenge **target_event**
+und eines anzusetzenden Zeithorizonts **target_cut_in_sec** das zugehörige
+Klassenlabel bestimmt. Durch die weiteren Argumente **keep_label** und
+**keep_time** können wir im Detail beeinflussen, welche Klasseninformation
+zurückgegeben werden soll. So ist es bspw. möglich, als potentielle
+Regressionsgröße die Zeit zum nächsten Zielereignis beizubehalten.
+
+# Zusammenfassung
+
+In dieser Vignette wurden die Grundzüge der Verwendung des **rktiq**-Packages
+erläutert und anhand von Beispielen demonstriert. Hierbei wurden schrittweise
+die zugrundeliegenden Sensorsignale **eingelesen**, **vorbereitet** und
+**visualisiert**. Danach wurde gezeigt, wie anhand der Signale gewisse
+Ereignisse **bestimmt** und diese wiederum in Form von Signalfenstern
+**vorbereitet** werden können. Abschließend wurden hierfür Merkmale
+**berechnet**, die als Ausgangspunkt für maschinelles Lernen dienen können.

@@ -1,0 +1,35 @@
+Package: rktiq
+Title: Toolbox zur Verarbeitung von Sensorsignalen
+Version: 1.0.0
+Authors@R: person("Daniel", "Voigt",
+                  email = "aieoi@dnlvgt.org",
+                  role = c("aut", "cre"))
+Description: Sammlung von nuetzlichen Funktionen zur Verarbeitung von
+    Sensorsignalen, zum Plotten dieser Signale, zur Bestimmung von Ereignissen,
+    zur Vorbereitung von Signalfenstern und zur Berechnung von Merkmalen.
+Depends: R (>= 3.5.0)
+License: CC0
+Encoding: UTF-8
+LazyData: true
+Imports: 
+    dplyr,
+    tidyr (>= 1.0.0),
+    purrr,
+    tibble,
+    lubridate,
+    magrittr,
+    utils,
+    rlang,
+    furrr,
+    hms,
+    stringr,
+    ggplot2,
+    tidyselect,
+    stats,
+    seewave,
+    graphics
+RoxygenNote: 7.0.2
+Suggests: 
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr
