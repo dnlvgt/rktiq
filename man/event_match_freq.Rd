@@ -17,10 +17,10 @@ event_match_freq(
 
 \item{y}{Dataframe mit der Ereignismenge \emph{y}.}
 
-\item{time_var_x}{Spaltenname (Symbol oder Character) der Zeitvariable in
+\item{time_var_x}{Spaltenname (Symbol oder String) der Zeitvariable in
 Dataframe \code{x} (Default: \emph{"time"}).}
 
-\item{time_var_y}{Spaltenname (Symbol oder Character) der Zeitvariable in
+\item{time_var_y}{Spaltenname (Symbol oder String) der Zeitvariable in
 Dataframe \code{y} (Default: \emph{"time"}).}
 
 \item{tolerance_in_sec}{Numerischer Wert mit der Laenge des Toleranzfensters

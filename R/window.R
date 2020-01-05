@@ -33,11 +33,12 @@ window_crop <- function(x,
                         .progress = TRUE,
                         ...) {
 
-  # Checkt die Datentypen der Argumente
-  stopifnot(is_valid(x),
-            is_temporal(start),
-            is_temporal(end),
-            is.logical(.progress))
+  # Checkt Argumente
+  assertthat::assert_that(is_valid(x),
+                          is_temporal(start),
+                          is_temporal(end),
+                          fun %is_null_or% is.function,
+                          assertthat::is.flag(.progress))
 
   res <-
     furrr::future_map2(start, end,
@@ -84,9 +85,10 @@ window_align <- function(x,
                          .progress = FALSE,
                          ...) {
 
-  # Checkt die Datentypen der Argumente
-  stopifnot(all_are_valid(x),
-            is.logical(.progress))
+  # Checkt Argumente
+  assertthat::assert_that(is.list(x),
+                          purrr::every(x, is_valid),
+                          assertthat::is.flag(.progress))
 
   furrr::future_map(x,
                     function(x, ...) {
@@ -127,10 +129,11 @@ window_stretch <- function(x,
                            max_in_sec = 60,
                            .progress = FALSE) {
 
-  # Checkt die Datentypen der Argumente
-  stopifnot(all_are_valid(x),
-            is.numeric(max_in_sec),
-            is.logical(.progress))
+  # Checkt Argumente
+  assertthat::assert_that(is.list(x),
+                          purrr::every(x, is_valid),
+                          assertthat::is.number(max_in_sec),
+                          assertthat::is.flag(.progress))
 
   x %>%
     window_align(as_datetime = FALSE,
@@ -168,9 +171,10 @@ window_stretch <- function(x,
 window_truncate <- function(x,
                             .progress = FALSE) {
 
-  # Checkt die Datentypen der Argumente
-  stopifnot(all_are_valid(x),
-            is.logical(.progress))
+  # Checkt Argumente
+  assertthat::assert_that(is.list(x),
+                          purrr::every(x, is_valid),
+                          assertthat::is.flag(.progress))
 
   x <- window_align(x, .progress = .progress)
 
@@ -217,10 +221,11 @@ window_merge <- function(x,
                          na.rm = TRUE,
                          ...) {
 
-  # Checkt die Datentypen der Argumente
-  stopifnot(all_are_valid(x),
-            is.function(fun),
-            is.logical(na.rm))
+  # Checkt Argumente
+  assertthat::assert_that(is.list(x),
+                          purrr::every(x, is_valid),
+                          is.function(fun),
+                          assertthat::is.flag(na.rm))
 
   x %>%
     dplyr::bind_rows() %>%
@@ -250,6 +255,11 @@ window_merge_aggregate <- function(x,
                                    fun,
                                    na.rm,
                                    ...) {
+  
+  # Checkt Argumente
+  assertthat::assert_that(is_valid(x),
+                          is.function(fun),
+                          assertthat::is.flag(na.rm))
 
   UseMethod("window_merge_aggregate")
 }
@@ -263,11 +273,6 @@ window_merge_aggregate.tiqqle_long <- function(x,
                                                fun,
                                                na.rm,
                                                ...) {
-
-  # Checkt die Datentypen der Argumente
-  stopifnot(is_valid(x),
-            is.function(fun),
-            is.logical(na.rm))
 
   x %>%
     # EVTL: parallel moeglich
@@ -286,11 +291,6 @@ window_merge_aggregate.tiqqle_wide <- function(x,
                                                fun,
                                                na.rm,
                                                ...) {
-
-  # Checkt die Datentypen der Argumente
-  stopifnot(is_valid(x),
-            is.function(fun),
-            is.logical(na.rm))
 
   x %>%
     # EVTL: parallel moeglich

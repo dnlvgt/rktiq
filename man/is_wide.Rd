@@ -19,9 +19,6 @@ eine weitere numerische Spalte mit dem Namen des Signals.
 }
 \seealso{
 Other Format-Checks: 
-\code{\link{all_are_long}()},
-\code{\link{all_are_valid}()},
-\code{\link{all_are_wide}()},
 \code{\link{is_long}()},
 \code{\link{is_tiqqle}()},
 \code{\link{is_valid}()}

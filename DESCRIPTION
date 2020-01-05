@@ -1,6 +1,6 @@
 Package: rktiq
 Title: Toolbox zur Verarbeitung von Sensorsignalen
-Version: 1.0.0
+Version: 1.0.1
 Authors@R: person("Daniel", "Voigt",
                   email = "aieoi@dnlvgt.org",
                   role = c("aut", "cre"))
@@ -27,7 +27,8 @@ Imports:
     tidyselect,
     stats,
     seewave,
-    graphics
+    graphics,
+    assertthat
 RoxygenNote: 7.0.2
 Suggests: 
     knitr,

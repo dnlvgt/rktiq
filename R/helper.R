@@ -18,8 +18,8 @@
 arrange2 <- function(x,
                      var) {
 
-  # Checkt die Datentypen der Argumente
-  stopifnot(is.data.frame(x))
+  # Checkt Argumente
+  assertthat::assert_that(is.data.frame(x))
 
   col <- dplyr::pull(x, {{ var }})
 
@@ -50,10 +50,10 @@ diff_time <- function(x,
                       y,
                       units = "secs") {
 
-  # Checkt die Datentypen der Argumente
-  stopifnot(lubridate::is.POSIXct(x),
-            lubridate::is.POSIXct(y),
-            is.character(units))
+  # Checkt Argumente
+  assertthat::assert_that(is_temporal(x, is_strict = TRUE),
+                          is_temporal(y, is_strict = TRUE),
+                          assertthat::is.string(units))
 
   difftime(y, x, units = units) %>%
     as.numeric()
@@ -77,9 +77,9 @@ diff_time <- function(x,
 find_mode <- function(x,
                       binwidth = 1) {
 
-  # Checkt die Datentypen der Argumente
-  stopifnot(is.numeric(x),
-            is.numeric(binwidth))
+  # Checkt Argumente
+  assertthat::assert_that(assertthat::is.number(x),
+                          assertthat::is.number(binwidth))
 
   breaks <- seq(min(x),
                 max(x) + binwidth,
@@ -117,8 +117,8 @@ find_mode <- function(x,
 first_row_per <- function(x,
                           var) {
 
-  # Checkt die Datentypen der Argumente
-  stopifnot(is.data.frame(x))
+  # Checkt Argumente
+  assertthat::assert_that(is.data.frame(x))
 
   if (nrow(x) == 0) {
 
@@ -151,9 +151,9 @@ first_row_per <- function(x,
 is_constant <- function(x,
                         na.rm = TRUE) {
 
-  # Checkt die Datentypen der Argumente
-  stopifnot(is.atomic(x),
-            is.logical(na.rm))
+  # Checkt Argumente
+  assertthat::assert_that(is.atomic(x),
+                          assertthat::is.flag(na.rm))
 
   dplyr::n_distinct(x, na.rm = na.rm) <= 1
 }
@@ -173,9 +173,9 @@ is_constant <- function(x,
 lvls_subset <- function(x,
                         pattern = ".*") {
 
-  # Checkt die Datentypen der Argumente
-  stopifnot(is.factor(x),
-            is.character(pattern))
+  # Checkt Argumente
+  assertthat::assert_that(is.factor(x),
+                          assertthat::is.string(pattern))
 
   x %>%
     levels() %>%
@@ -202,10 +202,10 @@ name_seq <- function(n,
                      prefix = "",
                      suffix = "") {
 
-  # Checkt die Datentypen der Argumente
-  stopifnot(is.numeric(n),
-            is.character(prefix),
-            is.character(suffix))
+  # Checkt Argumente
+  assertthat::assert_that(assertthat::is.count(n),
+                          assertthat::is.string(prefix),
+                          assertthat::is.string(suffix))
 
   seq_len(n) %>%
     stringr::str_pad(width = stringr::str_length(n),
@@ -229,8 +229,8 @@ name_seq <- function(n,
 #' @importFrom magrittr %>%
 name_unique <- function(x) {
 
-  # Checkt die Datentypen der Argumente
-  stopifnot(is.character(x))
+  # Checkt Argumente
+  assertthat::assert_that(assertthat::is.string(x))
 
   x %>%
     tibble::tibble(x = .) %>%
@@ -260,10 +260,13 @@ norm_range <- function(x,
                        min = 0,
                        max = 1) {
 
-  # Checkt die Datentypen der Argumente
-  stopifnot(is.logical(x) || is.numeric(x),
-            is.numeric(min),
-            is.numeric(max))
+  # Checkt Argumente
+  assertthat::assert_that(assertthat::is.number(x) ||
+                            assertthat::is.flag(x),
+                          assertthat::is.number(min),
+                          assertthat::is.number(max),
+                          
+                          min < max)
 
   (x - min(x, na.rm = TRUE)) /
     (max(x, na.rm = TRUE) - min(x, na.rm = TRUE)) *
@@ -295,10 +298,12 @@ rename2 <- function(x,
                     pattern_suffix = "",
                     suffix = "") {
 
-  # Checkt die Datentypen der Argumente
-  stopifnot(is.data.frame(x),
-            is.character(prefix),
-            is.character(suffix))
+  # Checkt Argumente
+  assertthat::assert_that(is.data.frame(x),
+                          assertthat::is.string(pattern_prefix),
+                          assertthat::is.string(prefix),
+                          assertthat::is.string(pattern_suffix),
+                          assertthat::is.string(suffix))
 
   pattern <-
     c(prefix, suffix) %>%
@@ -322,9 +327,9 @@ rename2 <- function(x,
 replace_nan <- function(x,
                         y = NA) {
 
-  # Checkt die Datentypen der Argumente
-  stopifnot(is.atomic(x),
-            is.atomic(y))
+  # Checkt Argumente
+  assertthat::assert_that(is.atomic(x),
+                          assertthat::is.scalar(y))
 
   ifelse(is.nan(x), y, x)
 }
@@ -343,23 +348,15 @@ replace_nan <- function(x,
 #'
 #' @keywords internal
 value_has_changed <- function(x) {
+  
+  # Checkt Argumente
+  assertthat::assert_that(is.data.frame(x) || is.atomic(x),
+                          assertthat::not_empty(x))
 
-  # Checkt die Inhalte der Argumente
-  if (is.data.frame(x)) {
-
-    if (ncol(x) == 0 || nrow(x) == 0) {
-
-      stop("Dataframe x darf nicht leer sein.")
-    }
-
-  } else {
-
-    if (length(x) == 0) {
-
-      stop("Vektor x darf nicht leer sein.")
-    }
-
-    # ...und packt Vektor in Liste
+  
+  # Packt Vektor in Liste
+  if (!is.data.frame(x)) {
+    
     x <- list(x)
   }
 

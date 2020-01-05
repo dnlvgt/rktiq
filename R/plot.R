@@ -23,10 +23,11 @@ plot_checkered <- function(x,
                            drop_level = TRUE,
                            has_legend = FALSE) {
 
-  # Checkt die Datentypen der Argumente
-  stopifnot(is_valid.tiqqle_long(x),
-            is.logical(drop_level),
-            is.logical(has_legend))
+  # Checkt Argumente
+  assertthat::assert_that(is_long(x),
+                          assertthat::not_empty(x),
+                          assertthat::is.flag(drop_level),
+                          assertthat::is.flag(has_legend))
 
   if (drop_level) {
 
@@ -90,11 +91,12 @@ plot_spread <- function(x,
                         ncol = 1,
                         drop_level = TRUE) {
 
-  # Checkt die Datentypen der Argumente
-  stopifnot(is_valid.tiqqle_long(x),
-            is.null(nrow) || is.numeric(nrow),
-            is.null(ncol) || is.numeric(ncol),
-            is.logical(drop_level))
+  # Checkt Argumente
+  assertthat::assert_that(is_long(x),
+                          assertthat::not_empty(x),
+                          nrow %is_null_or% assertthat::is.count,
+                          ncol %is_null_or% assertthat::is.count,
+                          assertthat::is.flag(drop_level))
 
   if (drop_level) {
 
@@ -132,10 +134,11 @@ plot_stacked <- function(x,
                          drop_level = TRUE,
                          has_legend = FALSE) {
 
-  # Checkt die Datentypen der Argumente
-  stopifnot(is_valid.tiqqle_long(x),
-            is.logical(drop_level),
-            is.logical(has_legend))
+  # Checkt Argumente
+  assertthat::assert_that(is_long(x),
+                          assertthat::not_empty(x),
+                          assertthat::is.flag(drop_level),
+                          assertthat::is.flag(has_legend))
 
   if (drop_level) {
 

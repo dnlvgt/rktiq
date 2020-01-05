@@ -59,18 +59,18 @@ sample_balanced <- function(n,
                             .seed = NULL,
                             .max_run = 1E3) {
 
-  # Checkt die Argumente
-  stopifnot_sample(n = n,
-                   int_start = int_start,
-                   int_end = int_end,
-                   offtime = offtime,
-                   target_event = target_event,
-                   target_cut_in_sec = target_cut_in_sec,
-                   event_length_in_sec = event_length_in_sec,
-                   event_overlap_in_sec = event_overlap_in_sec,
-                   include_tail = include_tail,
-                   .seed = .seed,
-                   .max_run = .max_run)
+  # Checkt Argumente
+  assert_sample(n = n,
+                int_start = int_start,
+                int_end = int_end,
+                offtime = offtime,
+                target_event = target_event,
+                target_cut_in_sec = target_cut_in_sec,
+                event_length_in_sec = event_length_in_sec,
+                event_overlap_in_sec = event_overlap_in_sec,
+                include_tail = include_tail,
+                .seed = .seed,
+                .max_run = .max_run)
 
   # Sorgt ggf. dafür, dass kein Ereignis ...
   # ...nach dem letzten Zielereignis kommen kann
@@ -134,19 +134,19 @@ sample_balanced_seq <- function(n,
                                 from_target = TRUE,
                                 include_tail = FALSE,
                                 .seed = NULL) {
-  # Checkt die Argumente
-  stopifnot_sample(n = n,
-                   int_start = int_start,
-                   int_end = int_end,
-                   offtime = offtime,
-                   target_event = target_event,
-                   target_cut_in_sec = target_cut_in_sec,
-                   event_length_in_sec = event_length_in_sec,
-                   event_overlap_in_sec = event_overlap_in_sec,
-                   from_start_to_end = from_start_to_end,
-                   from_target = from_target,
-                   include_tail = include_tail,
-                   .seed = .seed)
+  # Checkt Argumente
+  assert_sample(n = n,
+                int_start = int_start,
+                int_end = int_end,
+                offtime = offtime,
+                target_event = target_event,
+                target_cut_in_sec = target_cut_in_sec,
+                event_length_in_sec = event_length_in_sec,
+                event_overlap_in_sec = event_overlap_in_sec,
+                from_start_to_end = from_start_to_end,
+                from_target = from_target,
+                include_tail = include_tail,
+                .seed = .seed)
 
   # Seed für Reproduzierbarkeit
   set.seed(.seed %||% Sys.time())
@@ -257,15 +257,15 @@ sample_random <- function(n,
                           .seed = NULL,
                           .max_run = 1E3) {
 
-  # Checkt die Argumente
-  stopifnot_sample(n = n,
-                   int_start = int_start,
-                   int_end = int_end,
-                   offtime = offtime,
-                   event_length_in_sec = event_length_in_sec,
-                   event_overlap_in_sec = event_overlap_in_sec,
-                   .seed = .seed,
-                   .max_run = .max_run)
+  # Checkt Argumente
+  assert_sample(n = n,
+                int_start = int_start,
+                int_end = int_end,
+                offtime = offtime,
+                event_length_in_sec = event_length_in_sec,
+                event_overlap_in_sec = event_overlap_in_sec,
+                .seed = .seed,
+                .max_run = .max_run)
 
   # Seed für Reproduzierbarkeit
   set.seed(.seed %||% Sys.time())
@@ -314,15 +314,15 @@ sample_random_seq <- function(n,
                               from_start_to_end = TRUE,
                               .seed = NULL) {
 
-  # Checkt die Argumente
-  stopifnot_sample(n = n,
-                   int_start = int_start,
-                   int_end = int_end,
-                   offtime = offtime,
-                   event_length_in_sec = event_length_in_sec,
-                   event_overlap_in_sec = event_overlap_in_sec,
-                   from_start_to_end = from_start_to_end,
-                   .seed = .seed)
+  # Checkt Argumente
+  assert_sample(n = n,
+                int_start = int_start,
+                int_end = int_end,
+                offtime = offtime,
+                event_length_in_sec = event_length_in_sec,
+                event_overlap_in_sec = event_overlap_in_sec,
+                from_start_to_end = from_start_to_end,
+                .seed = .seed)
 
   # Seed für Reproduzierbarkeit
   set.seed(.seed %||% Sys.time())
@@ -376,12 +376,12 @@ random_event <- function(int_start,
                          event_length_in_sec,
                          .max_run = 1E3) {
 
-  # Checkt die Datentypen der Argumente
-  stopifnot(lubridate::is.POSIXct(int_start),
-            lubridate::is.POSIXct(int_end),
-            is.data.frame(offtime),
-            is.numeric(event_length_in_sec),
-            is.numeric(.max_run))
+  # Checkt Argumente
+  assertthat::assert_that(is_temporal(int_start, is_strict = TRUE),
+                          is_temporal(int_end, is_strict = TRUE),
+                          is.data.frame(offtime),
+                          assertthat::is.number(event_length_in_sec),
+                          assertthat::is.count(.max_run))
 
   # Mehrere Versuche
   for (i in seq_len(.max_run)) {
@@ -432,12 +432,12 @@ seq_event <- function(int_start,
                       event_overlap_in_sec = 0,
                       from_start_to_end = TRUE) {
 
-  # Checkt die Argumente
-  stopifnot_sample(int_start = int_start,
-                   int_end = int_end,
-                   event_length_in_sec = event_length_in_sec,
-                   event_overlap_in_sec = event_overlap_in_sec,
-                   from_start_to_end = from_start_to_end)
+  # Checkt Argumente
+  assert_sample(int_start = int_start,
+                int_end = int_end,
+                event_length_in_sec = event_length_in_sec,
+                event_overlap_in_sec = event_overlap_in_sec,
+                from_start_to_end = from_start_to_end)
 
   # Richtung der Sequenz
   if (from_start_to_end) {
@@ -473,71 +473,40 @@ seq_event <- function(int_start,
 #' @family Argument-Funktionen
 #'
 #' @keywords internal
-stopifnot_sample <- function(n = 1,
-                             int_start = lubridate::origin,
-                             int_end = lubridate::origin + 1,
-                             offtime = NULL,
-                             event_length_in_sec = 1,
-                             event_overlap_in_sec = 0,
-                             from_start_to_end = NA,
-                             target_event = data.frame(),
-                             target_cut_in_sec = 1,
-                             include_tail = NA,
-                             from_target = NA,
-                             .seed = NULL,
-                             .max_run = 1) {
+assert_sample <- function(n = 1,
+                          int_start = lubridate::origin,
+                          int_end = lubridate::origin + 1,
+                          offtime = NULL,
+                          event_length_in_sec = 1,
+                          event_overlap_in_sec = 0,
+                          from_start_to_end = NA,
+                          target_event = data.frame(),
+                          target_cut_in_sec = 1,
+                          include_tail = NA,
+                          from_target = NA,
+                          .seed = NULL,
+                          .max_run = 1) {
 
-  # Checkt die Typen
-  stopifnot(is.numeric(n),
-            lubridate::is.POSIXct(int_start),
-            lubridate::is.POSIXct(int_end),
-            is.null(offtime) || is.data.frame(offtime),
-            is.numeric(event_length_in_sec),
-            is.numeric(event_overlap_in_sec),
-            is.logical(from_start_to_end),
-            is.data.frame(target_event),
-            is.numeric(target_cut_in_sec),
-            is.logical(include_tail),
-            is.logical(from_target),
-            is.null(.seed) || is.numeric(.seed),
-            is.numeric(.max_run))
-
-  # Checkt die Werte
-  if (n <= 0) {
-
-    stop("Ereignisanzahl n muss positiv sein.")
-  }
-
-  if (int_start >= int_end) {
-
-    stop("Startzeitpunkt int_start muss vor Endzeitpunkt int_end liegen.")
-  }
-
-  if (event_length_in_sec <= 0) {
-
-    stop("Ereignisl\u00e4nge event_length_in_sec muss positiv sein.")
-  }
-
-  if (event_overlap_in_sec < 0) {
-
-    stop("Ereignis\u00dcberlappung event_overlap_in_sec muss positiv sein.")
-  }
-
-  if (event_overlap_in_sec >= event_length_in_sec) {
-
-    stop(paste("Ereignis\u00dcberlappung event_overlap_in_sec muss k\u00fcrzer",
-               "als Ereignisl\u00e4nge event_length_in_sec sein."))
-  }
-
-  if (target_cut_in_sec <= 0) {
-
-    stop("Zeitfenster target_cut_in_sec vor Zielereignis muss positiv sein.")
-  }
-
-  if (.max_run <= 0) {
-
-    stop("Anzahl der Sampling-Versuche .max_run muss positiv sein.")
-  }
+  # Checkt Argumente
+  assertthat::assert_that(assertthat::is.count(n),
+                          is_temporal(int_start, is_strict = TRUE),
+                          is_temporal(int_end, is_strict = TRUE),
+                          offtime %is_null_or% is.data.frame,
+                          assertthat::is.number(event_length_in_sec),
+                          assertthat::is.number(event_overlap_in_sec),
+                          assertthat::is.flag(from_start_to_end),
+                          is.data.frame(target_event),
+                          assertthat::is.number(target_cut_in_sec),
+                          assertthat::is.flag(include_tail),
+                          assertthat::is.flag(from_target),
+                          .seed %is_null_or% assertthat::is.number,
+                          assertthat::is.count(.max_run),
+                          
+                          int_start < int_end,
+                          event_length_in_sec > 0,
+                          event_overlap_in_sec >= 0,
+                          event_overlap_in_sec < event_length_in_sec,
+                          target_cut_in_sec > 0)
 
   invisible(NULL)
 }

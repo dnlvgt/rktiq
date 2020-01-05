@@ -2,7 +2,7 @@
 % Please edit documentation in R/tiqqle.R
 \name{tiqqle}
 \alias{tiqqle}
-\title{Tiqqle: ein TIQ Tibble}
+\title{Tiqqle: ein Tibble}
 \usage{
 tiqqle(x = NULL, format = "long")
 }

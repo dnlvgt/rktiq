@@ -20,15 +20,11 @@
 as_tiqqle <- function(x,
                       format = "long") {
 
-  # Checkt die Datentypen der Argumente
-  stopifnot(is.data.frame(x),
-            is.character(format))
-
-  # Checkt die Inhalte der Argumente
-  if (!format %in% c("long", "wide")) {
-
-    stop("Nur langes oder breites Format m\u00f6glich.")
-  }
+  # Checkt Argumente
+  assertthat::assert_that(is.data.frame(x),
+                          assertthat::is.string(format),
+                          
+                          format %in% c("long", "wide"))
 
   x <- tibble::as_tibble(x)
 
@@ -40,7 +36,7 @@ as_tiqqle <- function(x,
   x
 }
 
-#' Tiqqle: ein TIQ Tibble
+#' Tiqqle: ein Tibble
 #'
 #' Erzeugt einen Tiqqle-Dataframe im langen oder breiten Format. Falls kein
 #' bereits existierender Dataframe uebergeben wird, wird ein leerer Tiqqle
@@ -59,43 +55,32 @@ as_tiqqle <- function(x,
 #' @export
 tiqqle <- function(x = NULL,
                    format = "long") {
-
-  # Checkt die Datentypen der Argumente
-  stopifnot(is.null(x) || is.data.frame(x),
-            is.character(format))
-
-  # Checkt die Inhalte der Argumente
-  if (!format %in% c("long", "wide")) {
-
-    stop("Nur langes oder breites Format m\u00f6glich.")
-  }
-
-  if (!is.null(x)) {
-
-    if (format == "long" && !is_long(x)) {
-
-      stop("Dataframe x ist nicht im langen Format.")
-    }
-
-    if (format == "wide" && !is_wide(x)) {
-
-      stop("Dataframe x ist nicht im breiten Format.")
-    }
-
-  } else {
-
+  
+  # Checkt Argumente, Pt. 1
+  assertthat::assert_that(x %is_null_or% is.data.frame,
+                          assertthat::is.string(format),
+                          
+                          format %in% c("long", "wide"))
+  
+  if (is.null(x)) {
+    
     if (format == "long") {
-
+      
       x <- tibble::tibble(time   = as.POSIXct(integer(), origin = NA),
                           signal = factor(),
                           value  = numeric())
-
+      
     } else if (format == "wide") {
-
+      
       x <- tibble::tibble(time   = as.POSIXct(integer(), origin = NA),
                           signal = numeric())
     }
+    
   }
+  
+  # Checkt Argumente, Pt. 2
+  assertthat::assert_that(format == "long" && is_long(x),
+                          format == "wide" && is_wide(x))
 
   as_tiqqle(x, format)
 }
@@ -123,19 +108,14 @@ tiqqle <- function(x = NULL,
 #' @export
 as_long <- function(x,
                     remove_na = FALSE) {
-
-  # Checkt die Datentypen der Argumente
-  stopifnot(is_tiqqle(x),
-            is.logical(remove_na))
+  
+  # Checkt Argumente
+  assertthat::assert_that(is_valid(x),
+                          assertthat::is.flag(remove_na))
 
   if (is_long(x)) {
 
     return(x)
-  }
-
-  if (!is_wide(x)) {
-
-    stop("Dataframe x muss im breiten Format vorliegen.")
   }
 
   tidyr::pivot_longer(x,
@@ -166,19 +146,14 @@ as_long <- function(x,
 #' @export
 as_wide <- function(x,
                     fill_gap = FALSE) {
-
-  # Checkt die Datentypen der Argumente
-  stopifnot(is_tiqqle(x),
-            is.logical(fill_gap))
+  
+  # Checkt Argumente
+  assertthat::assert_that(is_valid(x),
+                          assertthat::is.flag(fill_gap))
 
   if (is_wide(x)) {
 
     return(x)
-  }
-
-  if (!is_long(x)) {
-
-    stop("Dataframe x muss im langen Format vorliegen.")
   }
 
   res <- tidyr::pivot_wider(x,

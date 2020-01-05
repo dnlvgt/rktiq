@@ -20,9 +20,6 @@ Signalwert).
 }
 \seealso{
 Other Format-Checks: 
-\code{\link{all_are_long}()},
-\code{\link{all_are_valid}()},
-\code{\link{all_are_wide}()},
 \code{\link{is_tiqqle}()},
 \code{\link{is_valid}()},
 \code{\link{is_wide}()}

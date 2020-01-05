@@ -16,13 +16,13 @@ harmonize(
 \arguments{
 \item{x}{Dataframe, der in die standardisierte Form gebracht werden soll.}
 
-\item{time_var}{Spaltenname (Symbol oder Character) der Zeitvariable im
+\item{time_var}{Spaltenname (Symbol oder String) der Zeitvariable im
 Dataframe \code{x} (Default: \emph{"time"}).}
 
-\item{signal_var}{Spaltenname (Symbol oder Character) der
+\item{signal_var}{Spaltenname (Symbol oder String) der
 Signalnamen-Variable im Dataframe \code{x} (Default: \emph{"signal"}).}
 
-\item{value_var}{Spaltenname (Symbol oder Character) der Signalwert-Variable
+\item{value_var}{Spaltenname (Symbol oder String) der Signalwert-Variable
 im Dataframe \code{x} (Default: \emph{"value"}).}
 
 \item{format}{String, welches Format der erzeugte Tiqqle hat. Erlaubte Werte:

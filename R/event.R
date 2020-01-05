@@ -19,8 +19,8 @@
 #' @importFrom magrittr %>%
 event_condense <- function(x) {
 
-  # Checkt die Datentypen der Argumente
-  stopifnot(is.data.frame(x))
+  # Checkt Argumente
+  assertthat::assert_that(is.data.frame(x))
 
   # Relevante Spalten beibehalten
   x <- dplyr::select(x, .data$start, .data$end)
@@ -83,12 +83,11 @@ event_invert <- function(x,
                          int_start = NULL,
                          int_end = NULL) {
 
-  # Checkt die Datentypen der Argumente
-  stopifnot(is.data.frame(x),
-            is.null(int_start) || lubridate::is.POSIXct(int_start),
-            is.null(int_end)   || lubridate::is.POSIXct(int_end))
-
-  x %>%
+  # Checkt Argumente
+  assertthat::assert_that(is.data.frame(x),
+                          is_null_or(int_start, is_temporal, is_strict = TRUE),
+                          is_null_or(int_end, is_temporal, is_strict = TRUE))
+  x %%
     event_condense() %>%
     dplyr::arrange(.data$start, .data$end) %>%
     {
@@ -132,18 +131,12 @@ event_detect <- function(x,
                          test_value,
                          label = NULL) {
 
-  # Checkt die Datentypen der Argumente
-  stopifnot(is_valid(x),
-            is.character(which),
-            is.function(op),
-            is.atomic(test_value),
-            is.null(label) || is.character(label))
-
-  # Checkt die Inhalte der Argumente
-  if (is.null(test_value)) {
-
-    stop("Zu testender Signalwert test_value muss gesetzt sein.")
-  }
+  # Checkt Argumente
+  assertthat::assert_that(is_valid(x),
+                          is.character(which),
+                          is.function(op),
+                          assertthat::is.scalar(test_value),
+                          label %is_null_or% assertthat::is.string)
 
   res <- x[0, ]
 
@@ -194,9 +187,9 @@ event_detect <- function(x,
 #'
 #' @param x Dataframe mit der Ereignismenge \emph{x}.
 #' @param y Dataframe mit der Ereignismenge \emph{y}.
-#' @param time_var_x Spaltenname (Symbol oder Character) der Zeitvariable in
+#' @param time_var_x Spaltenname (Symbol oder String) der Zeitvariable in
 #'   Dataframe \code{x} (Default: \emph{"time"}).
-#' @param time_var_y Spaltenname (Symbol oder Character) der Zeitvariable in
+#' @param time_var_y Spaltenname (Symbol oder String) der Zeitvariable in
 #'   Dataframe \code{y} (Default: \emph{"time"}).
 #' @param tolerance_in_sec Numerischer Wert mit der Laenge des Toleranzfensters
 #'   in Sekunden (Default: 10, d.h. Toleranzfenster von 10 Sekunden).
@@ -215,32 +208,23 @@ event_match_freq <- function(x,
                              time_var_y = "time",
                              tolerance_in_sec = 10) {
 
-  # Checkt die Datentypen der Argumente
-  stopifnot(is.data.frame(x),
-            is.data.frame(y),
-            is.numeric(tolerance_in_sec))
-
-  # Checkt die Inhalte der Argumente
-  if (nrow(x) == 0) {
-
-    stop("Dataframe x darf nicht leer sein.")
-  }
-
-  if (nrow(y) == 0) {
-
-    stop("Dataframe y darf nicht leer sein.")
-  }
-
+  # Checkt Argumente
+  assertthat::assert_that(is.data.frame(x),
+                          assertthat::not_empty(x),
+                          is.data.frame(y),
+                          assertthat::not_empty(x),
+                          assertthat::is.number(tolerance_in_sec))
+  
   time_var_x <-
     rlang::enquo(time_var_x) %>%
     rlang::as_name() %>%
     paste0("_x")
-
+  
   time_var_y <-
     rlang::enquo(time_var_y) %>%
     rlang::as_name() %>%
     paste0("_y")
-
+  
   x <- rename2(x, suffix = "_x")
   y <- rename2(y, suffix = "_y")
 
@@ -281,9 +265,9 @@ event_match_freq <- function(x,
 #' @inheritParams future_dummy
 #' @param x Dataframe mit der Startereignismenge \code{x}.
 #' @param y Dataframe mit der Endereignismenge \code{y}.
-#' @param time_var_x Spaltenname (Symbol oder Character) der Zeitvariable in
+#' @param time_var_x Spaltenname (Symbol oder String) der Zeitvariable in
 #'   Dataframe \code{x} (Default: \emph{"time"}).
-#' @param time_var_y Spaltenname (Symbol oder Character) der Zeitvariable in
+#' @param time_var_y Spaltenname (Symbol oder String) der Zeitvariable in
 #'   Dataframe \code{y} (Default: \emph{"time"}).
 #' @param last_before Logischer Wert, ob letzter Startzeitpunkt vor Endzeitpunkt
 #'   bestimmt werden soll oder erster Startzeitpunkt nach Endzeitpunkt (Default:
@@ -314,13 +298,13 @@ event_match_seq <- function(x,
                             remove_na   = TRUE,
                             .progress   = FALSE) {
 
-  # Checkt die Datentypen der Argumente
-  stopifnot(is.data.frame(x),
-            is.data.frame(y),
-            is.logical(last_before),
-            is.logical(is_strict),
-            is.logical(remove_na),
-            is.logical(.progress))
+  # Checkt Argumente
+  assertthat::assert_that(is.data.frame(x),
+                          is.data.frame(y),
+                          assertthat::is.flag(last_before),
+                          assertthat::is.flag(is_strict),
+                          assertthat::is.flag(remove_na),
+                          assertthat::is.flag(.progress))
 
   time_var_x <-
     rlang::enquo(time_var_x) %>%
@@ -403,9 +387,9 @@ event_match_seq <- function(x,
 event_merge <- function(x,
                         threshold_in_sec = 0) {
 
-  # Checkt die Datentypen der Argumente
-  stopifnot(is.data.frame(x),
-            is.numeric(threshold_in_sec))
+  # Checkt Argumente
+  assertthat::assert_that(is.data.frame(x),
+                          assertthat::is.number(threshold_in_sec))
 
   x %>%
     # Sortierung sicherstellen
@@ -462,23 +446,15 @@ event_target <- function(x,
                          keep_label = FALSE,
                          keep_time = TRUE) {
 
-  # Checkt die Datentypen der Argumente
-  stopifnot(is.data.frame(x),
-            is.data.frame(target_event),
-            is.null(target_cut_in_sec) || is.numeric(target_cut_in_sec),
-            is.logical(keep_label),
-            is.logical(keep_time))
-
-  # Checkt die Werte
-  if (!keep_label && is.null(target_cut_in_sec)) {
-
-    stop("Zeitfenster target_cut_in_sec muss gesetzt sein.")
-  }
-
-  if (keep_label && !rlang::has_name(target_event, "label")) {
-
-    stop("Zielereignis-Dataframe target_event muss eine Spalte 'label' haben.")
-  }
+  # Checkt Argumente
+  assertthat::assert_that(is.data.frame(x),
+                          is.data.frame(target_event),
+                          target_cut_in_sec %is_null_or% assertthat::is.number,
+                          assertthat::is.flag(add_id),
+                          assertthat::is.flag(keep_label),
+                          assertthat::is.flag(keep_time),
+                          rlang::has_name(target_event, "label") ||
+                            !is.null(target_cut_in_sec))
 
   # Zugehörige Paare Ereignis/Zielereignis
   res <-
@@ -537,7 +513,7 @@ event_target <- function(x,
 #' @param y Dataframe, der die fuer die Tests herangezogene Menge an Ereignissen
 #'   beinhaltet.
 #' @param condition Funktion, die zum Testen der beiden Ereignismengen verwendet
-#'   wird
+#'   wird.
 #' @param swap_xy Logischer Wert, ob Reihenfolge der Ereignismengen beim
 #'   Berechnen der Testergebnisse zu \emph{y vs. x} veraendert wird (Default:
 #'   \emph{FALSE}, d.h. Reihenfolge bleibt bei \emph{x vs. y}).
@@ -560,11 +536,12 @@ event_test <- function(x,
                        swap_xy = FALSE,
                        ...) {
 
-  # Checkt die Datentypen der Argumente
-  stopifnot(is.data.frame(x),
-            is.data.frame(y),
-            is.function(condition))
-
+  # Checkt Argumente
+  assertthat::assert_that(is.data.frame(x),
+                          is.data.frame(y),
+                          is.function(condition),
+                          assertthat::is.flag(swap_xy))
+  
   # Testfunktion
   testfun <- function(y_start, y_end, x, ...) {
 
@@ -621,11 +598,11 @@ equal <- function(x_start,
                   y_start,
                   y_end) {
 
-  # Checkt die Argumente
-  stopifnot_test(x_start,
-                 x_end,
-                 y_start,
-                 y_end)
+  # Checkt Argumente
+  assert_test(x_start,
+              x_end,
+              y_start,
+              y_end)
 
   (x_start == y_start) &
     (x_end == y_end)
@@ -659,12 +636,12 @@ include <- function(x_start,
                     y_end,
                     is_strict = FALSE) {
 
-  # Checkt die Argumente
-  stopifnot_test(x_start,
-                 x_end,
-                 y_start,
-                 y_end,
-                 is_strict)
+  # Checkt Argumente
+  assert_test(x_start,
+              x_end,
+              y_start,
+              y_end,
+              is_strict)
 
   op1 <- ifelse(is_strict, `<`, `<=`)
   op2 <- ifelse(is_strict, `>`, `>=`)
@@ -709,13 +686,13 @@ nearby <- function(x_start,
                    threshold_in_sec,
                    is_strict = FALSE) {
 
-  # Checkt die Argumente
-  stopifnot_test(x_start,
-                 x_end,
-                 y_start,
-                 y_end,
-                 is_strict,
-                 threshold_in_sec)
+  # Checkt Argumente
+  assert_test(x_start,
+              x_end,
+              y_start,
+              y_end,
+              is_strict,
+              threshold_in_sec)
 
   # Korrigiert einstelligen Toleranzbereich
   if (length(threshold_in_sec) == 1) {
@@ -761,12 +738,12 @@ overlap <- function(x_start,
                     y_end,
                     is_strict = TRUE) {
 
-  # Checkt die Argumente
-  stopifnot_test(x_start,
-                 x_end,
-                 y_start,
-                 y_end,
-                 is_strict)
+  # Checkt Argumente
+  assert_test(x_start,
+              x_end,
+              y_start,
+              y_end,
+              is_strict)
 
   op1 <- ifelse(is_strict, `<`, `<=`)
   op2 <- ifelse(is_strict, `>`, `>=`)
@@ -790,26 +767,21 @@ overlap <- function(x_start,
 #' @family Argument-Funktionen
 #'
 #' @keywords internal
-stopifnot_test <- function(x_start = 0,
-                           x_end = 0,
-                           y_start = 0,
-                           y_end = 0,
-                           is_strict = NA,
-                           threshold_in_sec = 0) {
+assert_test <- function(x_start = 0,
+                        x_end = 0,
+                        y_start = 0,
+                        y_end = 0,
+                        is_strict = NA,
+                        threshold_in_sec = 0) {
 
-  # Checkt die Typen
-  stopifnot(is_temporal(x_start),
-            is_temporal(x_end),
-            is_temporal(y_start),
-            is_temporal(y_end),
-            is.logical(is_strict),
-            is.numeric(threshold_in_sec))
-
-  # Checkt die Werte
-  if (!length(threshold_in_sec) %in% 1:2) {
-
-    stop("Toleranzbereich threshold_in_sec muss L\u00e4nge 1 oder 2 haben.")
-  }
+  # Checkt Argumente
+  assertthat::assert_that(is_temporal(x_start),
+                          is_temporal(x_end),
+                          is_temporal(y_start),
+                          is_temporal(y_end),
+                          assertthat::is.flag(is_strict),
+                          assertthat::is.number(threshold_in_sec),
+                          length(threshold_in_sec) %in% 1:2)
 
   invisible(NULL)
 }

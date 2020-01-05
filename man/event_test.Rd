@@ -13,7 +13,7 @@ event_test(x, y, condition, swap_xy = FALSE, ...)
 beinhaltet.}
 
 \item{condition}{Funktion, die zum Testen der beiden Ereignismengen verwendet
-wird}
+wird.}
 
 \item{swap_xy}{Logischer Wert, ob Reihenfolge der Ereignismengen beim
 Berechnen der Testergebnisse zu \emph{y vs. x} veraendert wird (Default:

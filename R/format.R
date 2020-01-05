@@ -1,24 +1,71 @@
-# Funktionen zum Formatieren und Testen von Signal-Dataframes.
+# Funktionen zum Testen von Objekten.
 
-# Format-Checks (einzelne Spalten) ---------------------------------------------
+# Format-Checks (einzelne Vektoren) --------------------------------------------
+
+#' Erfuellt Vektor erweiterte Bedingung?
+#'
+#' Ueberprueft, ob ein Vektor entweder NULL ist oder eine zusaetzliche Bedingung
+#' erfuellt.
+#'
+#' @param x Vektor, der ueberprueft wird.
+#' @param condition Funktion, die zum erweiterten Testen von \code{x} verwendet
+#'   wird.
+#' @param ... Weitere Argumente, die an Funktion \code{condition} durchgereicht
+#'   werden.
+#'
+#' @return Logischer Wert, ob \code{x} NULL ist oder die Bedingung erfuellt.
+#'
+#' @keywords internal
+is_null_or <- function(x,
+                       condition,
+                       ...) {
+  
+  # Checkt Argumente
+  assertthat::assert_that(is.atomic(x),
+                          is.function(condition))
+  
+  is.null(x) ||
+    condition(x, ...)
+}
+
+#' @rdname is_null_or
+#'
+#' @keywords internal
+`%is_null_or%` <- function(x,
+                           condition) {
+  
+  is_null_or(x, condition)
+}
 
 #' Vektor mit Zeitinformationen?
 #'
 #' Ueberprueft, ob in einem Vektor Zeitinformationen vorliegen.
 #'
 #' @param x Vektor, der ueberprueft wird.
+#' @param is_strict Logischer Wert, ob streng ausschliesslich auf
+#'   \code{is.POSIXct} getestet wird (Default: \emph{FALSE}).
 #'
 #' @return Logischer Wert, ob \code{x} ein Vektor mit Zeitinformationen ist.
 #'
 #' @keywords internal
-is_temporal <- function(x) {
+is_temporal <- function(x,
+                        is_strict = FALSE) {
 
-  # Checkt die Datentypen der Argumente
-  stopifnot(is.atomic(x))
-
-  is.numeric(x) ||
-    lubridate::is.POSIXct(x) ||
-    hms::is.hms(x)
+  # Checkt Argumente
+  assertthat::assert_that(is.atomic(x),
+                          assertthat::is.flag(is_strict))
+  
+  res <- lubridate::is.POSIXct(x)
+  
+  if (!is_strict) {
+    
+    res <-
+      res ||
+      is.numeric(x) ||
+      hms::is_hms(x)
+  }
+  
+  res
 }
 
 # Format-Checks (einzelne DF) --------------------------------------------------
@@ -39,8 +86,8 @@ is_temporal <- function(x) {
 #' @export
 is_long <- function(x) {
 
-  # Checkt die Datentypen der Argumente
-  stopifnot(is.data.frame(x))
+  # Checkt Argumente
+  assertthat::assert_that(is.data.frame(x))
 
   ncol(x) == 3 &&
     all(names(x) == c("time", "signal", "value")) &&
@@ -68,48 +115,35 @@ is_tiqqle <- function(x) {
 
 #' Valider Tiqqle?
 #'
-#' Ueberprueft, ob ein Dataframe ein langer oder breiter Tiqqle ist und ggf.
-#' Daten enthaelt.
+#' Ueberprueft, ob ein Dataframe ein langer oder breiter Tiqqle ist.
 #'
 #' @param x Dataframe (\code{\link{tibble}}), dessen Format ueberprueft wird.
-#' @param is_empty Logischer Wert, ob Dataframe auch leer sein darf, um als
-#'   valide zu gelten (Default: \emph{FALSE}, d.h. er muss Daten enthalten).
 #'
 #' @return Logischer Wert, ob Dataframe \code{x} ein valider Tiqqle ist.
 #'
 #' @family Format-Checks
 #'
 #' @export
-is_valid <- function(x,
-                     is_empty = FALSE) {
+is_valid <- function(x) {
 
+  # Checkt Argumente
+  assertthat::assert_that(tibble::is_tibble(x))
+  
   UseMethod("is_valid")
 }
 
 #' @export
-is_valid.tiqqle_long <- function(x,
-                                 is_empty = FALSE) {
-
-  # Checkt die Datentypen der Argumente
-  stopifnot(tibble::is_tibble(x),
-            is.logical(is_empty))
+is_valid.tiqqle_long <- function(x) {
 
   is_tiqqle(x) &&
-    is_long(x) &&
-    (is_empty || nrow(x) > 0)
+    is_long(x)
 }
 
 #' @export
-is_valid.tiqqle_wide <- function(x,
-                                 is_empty = FALSE) {
-
-  # Checkt die Datentypen der Argumente
-  stopifnot(tibble::is_tibble(x),
-            is.logical(is_empty))
+is_valid.tiqqle_wide <- function(x) {
 
   is_tiqqle(x) &&
-    is_wide(x) &&
-    (is_empty || nrow(x) > 0)
+    is_wide(x)
 }
 
 #' Breiter Dataframe?
@@ -127,8 +161,8 @@ is_valid.tiqqle_wide <- function(x,
 #' @export
 is_wide <- function(x) {
 
-  # Checkt die Datentypen der Argumente
-  stopifnot(is.data.frame(x))
+  # Checkt Argumente
+  assertthat::assert_that(is.data.frame(x))
 
   ncol(x) > 1 &&
     names(x)[1] == "time" &&
@@ -137,70 +171,3 @@ is_wide <- function(x) {
                  is.numeric)
 }
 
-# Format-Checks (mehrere DFs) --------------------------------------------------
-
-#' Lange Dataframes?
-#'
-#' Ueberprueft, ob in einer Liste von Dataframes alle im langen Format
-#' vorliegen. Das lange Format besitzt hierbei drei Spalten: \emph{time}
-#' (Zeitstempel), \emph{signal} (Signalname als Faktor) und \emph{value}
-#' (numerischer Signalwert).
-#'
-#' @inheritParams all_are_valid
-#'
-#' @return Logischer Wert, ob alle Tiqqles in Liste \code{x} im langen Format
-#'   vorliegen.
-#'
-#' @family Format-Checks
-#'
-#' @keywords internal
-all_are_long <- function(x) {
-
-  # Checkt die Datentypen der Argumente
-  stopifnot(rlang::is_vector(x))
-
-  purrr::every(x, is_long)
-}
-
-#' Valide Dataframes?
-#'
-#' Ueberprueft, ob in einer Liste von Dataframes alle lange oder breite Tiqqle
-#' sind und Daten enthalten.
-#'
-#' @param x Liste mit Tiqqles, deren Format ueberprueft wird.
-#'
-#' @return Logischer Wert, ob alle Tiqqles in Liste \code{x} valide sind.
-#'
-#' @family Format-Checks
-#'
-#' @keywords internal
-all_are_valid <- function(x) {
-
-  # Checkt die Datentypen der Argumente
-  stopifnot(rlang::is_vector(x))
-
-  purrr::every(x, is_valid)
-}
-
-#' Breite Dataframes?
-#'
-#' Ueberprueft, ob in einer Liste von Dataframes alle im breiten Format
-#' vorliegen. Das breite Format besitzt hierbei eine Spalte \emph{time}
-#' (Zeitstempel) und fuer jedes Signal eine weitere numerische Spalte mit dem
-#' Namen des Signals.
-#'
-#' @inheritParams all_are_valid
-#'
-#' @return Logischer Wert, ob alle Tiqqles in Liste \code{x} im breiten Format
-#'   vorliegen.
-#'
-#' @family Format-Checks
-#'
-#' @keywords internal
-all_are_wide <- function(x) {
-
-  # Checkt die Datentypen der Argumente
-  stopifnot(rlang::is_vector(x))
-
-  purrr::every(x, is_wide)
-}

@@ -8,11 +8,11 @@
 #' wird angenommen, dass der urspruengliche Dataframe ein langes Format besitzt.
 #'
 #' @param x Dataframe, der in die standardisierte Form gebracht werden soll.
-#' @param time_var Spaltenname (Symbol oder Character) der Zeitvariable im
+#' @param time_var Spaltenname (Symbol oder String) der Zeitvariable im
 #'   Dataframe \code{x} (Default: \emph{"time"}).
-#' @param signal_var Spaltenname (Symbol oder Character) der
+#' @param signal_var Spaltenname (Symbol oder String) der
 #'   Signalnamen-Variable im Dataframe \code{x} (Default: \emph{"signal"}).
-#' @param value_var Spaltenname (Symbol oder Character) der Signalwert-Variable
+#' @param value_var Spaltenname (Symbol oder String) der Signalwert-Variable
 #'   im Dataframe \code{x} (Default: \emph{"value"}).
 #' @param format String, welches Format der erzeugte Tiqqle hat. Erlaubte Werte:
 #'   \emph{"long"} oder \emph{"wide"} (Default: \emph{"long"}, d.h. langes
@@ -34,24 +34,18 @@ harmonize <- function(x,
                       format = "long",
                       ...) {
 
-  # Checkt die Datentypen der Argumente
-  stopifnot(is.data.frame(x),
-            is.character(format))
-
-  # Checkt die Inhalte der Argumente
-  if (!format %in% c("long", "wide")) {
-
-    stop("Nur langes oder breites Format m\u00f6glich.")
-  }
+  # Checkt Argumente, Pt. 1
+  assertthat::assert_that(is.data.frame(x),
+                          assertthat::is.string(format),
+                          
+                          format %in% c("long", "wide"))
 
   time_var   <- rlang::ensym(time_var)
   signal_var <- rlang::ensym(signal_var)
   value_var  <- rlang::ensym(value_var)
-
-  if (!is_temporal(x[[time_var]])) {
-
-    stop("Keine g\u00fcltige Zeitinformation im Vektor x.")
-  }
+  
+  # Checkt Argumente, Pt. 2
+  assertthat::assert_that(is_temporal(x[[time_var]]))
 
   res <-
     x %>%
@@ -77,10 +71,10 @@ harmonize <- function(x,
 #' Ueberfuehrt einen Ereignis-Dataframe in ein standardisiertes Format.
 #'
 #' @param x Dataframe, der in die standardisierte Form gebracht werden soll.
-#' @param start_var Spaltenname (Symbol oder Character) der Variable mit dem
+#' @param start_var Spaltenname (Symbol oder String) der Variable mit dem
 #'   Zeitpunkt des Eintretens des Ereignisses im Dataframe \code{x} (Default:
 #'   \emph{"start"}).
-#' @param end_var Spaltenname (Symbol oder Character) der Variabele mit dem
+#' @param end_var Spaltenname (Symbol oder String) der Variabele mit dem
 #'   Zeitpunkt des Aufhebens des Ereignisses im Dataframe \code{x} (Default:
 #'   \emph{"end"}).
 #' @param ... Weitere Spaltennamen (Symbole oder Character), die als
@@ -97,22 +91,16 @@ harmonize_event <- function(x,
                             end_var   = "end",
                             ...) {
 
-  # Checkt die Datentypen der Argumente
-  stopifnot(is.data.frame(x))
+  # Checkt Argumente, Pt. 1
+  assertthat::assert_that(is.data.frame(x))
 
   start_var <- rlang::ensym(start_var)
   end_var   <- rlang::ensym(end_var)
   info_vars <- rlang::ensyms(...)
-
-  if (!is_temporal(x[[start_var]])) {
-
-    stop("Keine g\u00fcltige Startzeitinformation im Vektor x.")
-  }
-
-  if (!is_temporal(x[[end_var]])) {
-
-    stop("Keine g\u00fcltige Endzeitinformation im Vektor x.")
-  }
+  
+  # Checkt Argumente, Pt. 2
+  assertthat::assert_that(is_temporal(x[[start_var]]),
+                          is_temporal(x[[end_var]]))
 
   x %>%
     # Spalten umbenennen
@@ -155,6 +143,15 @@ limit <- function(x,
                   op = `-`,
                   value_before,
                   value_after = NULL) {
+  
+  # Checkt Argumente
+  assertthat::assert_that(is_valid(x),
+                          assertthat::not_empty(x),
+                          is.character(which),
+                          when %is_null_or% is_temporal,
+                          is.function(op),
+                          assertthat::is.number(value_before),
+                          value_after %is_null_or% assertthat::is.number)
 
   UseMethod("limit")
 }
@@ -168,14 +165,6 @@ limit.tiqqle_long <- function(x,
                               op = `-`,
                               value_before,
                               value_after = NULL) {
-
-  # Checkt die Datentypen der Argumente
-  stopifnot(is_valid(x, is_empty = TRUE),
-            is.character(which),
-            is.null(when) || is_temporal(when),
-            is.function(op),
-            is.numeric(value_before),
-            is.null(value_after) || is.numeric(value_after))
 
   res <-
     x %>%
@@ -198,14 +187,6 @@ limit.tiqqle_wide <- function(x,
                               op = `-`,
                               value_before,
                               value_after = NULL) {
-
-  # Checkt die Datentypen der Argumente
-  stopifnot(is_valid(x, is_empty = TRUE),
-            is.character(which),
-            is.null(when) || is_temporal(when),
-            is.function(op),
-            is.numeric(value_before),
-            is.null(value_after) || is.numeric(value_after))
 
   dplyr::mutate_at(x,
                    which,
@@ -240,7 +221,12 @@ limit.tiqqle_wide <- function(x,
 normalize <- function(x,
                       fun = norm_range,
                       ...) {
-
+  
+  # Checkt Argumente
+  assertthat::assert_that(is_valid(x),
+                          assertthat::not_empty(x),
+                          is.function(fun))
+  
   UseMethod("normalize")
 }
 
@@ -249,10 +235,6 @@ normalize <- function(x,
 normalize.tiqqle_long <- function(x,
                                   fun = norm_range,
                                   ...) {
-
-  # Checkt die Datentypen der Argumente
-  stopifnot(is_valid(x, is_empty = TRUE),
-            is.function(fun))
 
   x %>%
     # EVTL: parallel moeglich
@@ -266,10 +248,6 @@ normalize.tiqqle_long <- function(x,
 normalize.tiqqle_wide <- function(x,
                                   fun = norm_range,
                                   ...) {
-
-  # Checkt die Datentypen der Argumente
-  stopifnot(is_valid(x, is_empty = TRUE),
-            is.function(fun))
 
   dplyr::mutate_at(x,
                    .vars = dplyr::vars(-"time"),
@@ -323,14 +301,14 @@ crop <- function(x,
                  pad_end = TRUE,
                  fill_na = FALSE) {
 
-  # Checkt die Datentypen der Argumente
-  stopifnot(is_valid(x),
-            is.null(start) || purrr::every(start, is_temporal),
-            is.null(end) || purrr::every(end, is_temporal),
-            is.logical(pad_start),
-            is.logical(pad_end),
-            is.logical(fill_na))
-
+  # Checkt Argumente
+  assertthat::assert_that(is_valid(x),
+                          is_null_or(start, purrr::every, .p = is_temporal),
+                          is_null_or(end, purrr::every, .p = is_temporal),
+                          assertthat::is.flag(pad_start),
+                          assertthat::is.flag(pad_end),
+                          assertthat::is.flag(fill_na))
+              
   # Zurueck, wenn nix zu tun ist
   if (is.null(start) && is.null(end)) {
 
@@ -376,65 +354,6 @@ crop <- function(x,
                   })
 }
 
-#' Letzter gueltiger Signalwert im breiten Format
-#'
-#' Hilfsfunktion zur Bestimmung des letzten oder naechsten Signalwerts im
-#' breiten Format \code{\link{last_value.tiqqle_long}}.
-#'
-#' @param x Tiqqle, aus dem der gueltige Wert bestimmt wird.
-#' @param fill_na Logischer Wert, ob evtl. entstehende \emph{NA}-Werte mit dem
-#'   naechsten gueltigen Signalwert ersetzt werden (Default: \emph{TRUE}, d.h.
-#'   sie werden ersetzt).
-#' @param direction String mit zeitlicher Ersetzungsrichtung - entweder
-#'   \emph{"forward"} (Default: letzter gueltiger Wert ) oder \emph{"backward"}
-#'   (naechster gueltiger Wert).
-#'
-#' @return Tiqqle mit letzten gueltigen Signalwerten aus \code{x}.
-#'
-#' @seealso \code{\link{last_value.tiqqle_long}}
-#'
-#' @keywords internal
-fill_signal.tiqqle_wide <- function(x,
-                                    fill_na = TRUE,
-                                    direction = "forward") {
-
-  # Checkt die Datentypen der Argumente
-  stopifnot(is_valid(x, is_empty = TRUE),
-            is.logical(fill_na),
-            is.character(direction))
-
-  # Checkt die Inhalte der Argumente
-  if (!direction %in% c("forward", "backward")) {
-
-    stop("Nur Vorw\u00e4rts- oder R\u00fcckw\u00e4rtsersetzung m\u00f6glich.")
-  }
-
-  y <- dplyr::slice(x,
-                    ifelse(direction == "forward",
-                           dplyr::n(),
-                           1))
-
-  if (nrow(x) == 0) {
-
-    # NAs einfuegen, falls keine Werte existieren
-    x <- x[1, ]
-
-  } else if (fill_na && purrr::some(y, is.na)) {
-
-    # Auffuellen, falls noetig
-    x <-
-      tidyr::fill(x,
-                  .direction = ifelse(direction == "forward",
-                                      "down",
-                                      "up"))
-  }
-
-  dplyr::slice(x,
-               ifelse(direction == "forward",
-                      dplyr::n(),
-                      1))
-}
-
 #' Letzter gueltiger Signalwert
 #'
 #' Bestimmt den letzten Wert pro Signal, der vor einem bestimmten Zeitpunkt
@@ -454,6 +373,12 @@ fill_signal.tiqqle_wide <- function(x,
 last_value <- function(x,
                        before,
                        fill_na = FALSE) {
+  
+  # Checkt Argumente
+  assertthat::assert_that(is_valid(x),
+                          assertthat::not_empty(x),
+                          is_temporal(before),
+                          assertthat::is.flag(fill_na))
 
   UseMethod("last_value")
 }
@@ -466,11 +391,6 @@ last_value <- function(x,
 last_value.tiqqle_long <- function(x,
                                    before,
                                    fill_na = FALSE) {
-
-  # Checkt die Datentypen der Argumente
-  stopifnot(is_valid(x, is_empty = TRUE),
-            is_temporal(before),
-            is.logical(fill_na))
 
   # Alle auftretenden Signale
   x1 <- tibble::tibble(time = before,
@@ -520,17 +440,12 @@ last_value.tiqqle_wide <- function(x,
                                    before,
                                    fill_na = FALSE) {
 
-  # Checkt die Datentypen der Argumente
-  stopifnot(is_valid(x, is_empty = TRUE),
-            is_temporal(before),
-            is.logical(fill_na))
-
   # Letzter gueltiger Wert pro Signal
   res <-
     x %>%
     dplyr::filter(.data$time <= before) %>%
-    fill_signal.tiqqle_wide(fill_na = fill_na,
-                            direction = "forward") %>%
+    fill_signal_wide(fill_na = fill_na,
+                     direction = "forward") %>%
     utils::tail(1)
 
   # Falls noetig, NAs durch naechsten gueltigen Wert ersetzen
@@ -539,8 +454,8 @@ last_value.tiqqle_wide <- function(x,
     res2 <-
       x %>%
       dplyr::filter(.data$time > before) %>%
-      fill_signal.tiqqle_wide(fill_na = fill_na,
-                              direction = "backward") %>%
+      fill_signal_wide(fill_na = fill_na,
+                       direction = "backward") %>%
       utils::head(1)
 
     # Entscheiden, welcher Wert uebernommen wird
@@ -573,6 +488,9 @@ last_value.tiqqle_wide <- function(x,
 #'
 #' @export
 condense <- function(x) {
+  
+  # Checkt Argumente
+  assertthat::assert_that(is_valid(x))
 
   UseMethod("condense")
 }
@@ -580,9 +498,6 @@ condense <- function(x) {
 #' @importFrom magrittr %>%
 #' @export
 condense.tiqqle_long <- function(x) {
-
-  # Checkt die Datentypen der Argumente
-  stopifnot(is_valid(x))
 
   x %>%
     arrange2(.data$time) %>%
@@ -600,9 +515,6 @@ condense.tiqqle_long <- function(x) {
 #' @importFrom magrittr %>%
 #' @export
 condense.tiqqle_wide <- function(x) {
-
-  # Checkt die Datentypen der Argumente
-  stopifnot(is_valid(x))
 
   x %>%
     arrange2(.data$time) %>%
@@ -632,6 +544,10 @@ condense.tiqqle_wide <- function(x) {
 #' @export
 remove_constant <- function(x,
                             ...) {
+  
+  # Checkt Argumente
+  assertthat::assert_that(is_valid(x),
+                          assertthat::not_empty(x))
 
   UseMethod("remove_constant")
 }
@@ -640,9 +556,6 @@ remove_constant <- function(x,
 #' @export
 remove_constant.tiqqle_long <- function(x,
                                         ...) {
-
-  # Checkt die Datentypen der Argumente
-  stopifnot(is_valid(x, is_empty = TRUE))
 
   x %>%
     # EVTL: parallel moeglich
@@ -656,9 +569,6 @@ remove_constant.tiqqle_long <- function(x,
 #' @export
 remove_constant.tiqqle_wide <- function(x,
                                         ...) {
-
-  # Checkt die Datentypen der Argumente
-  stopifnot(is_valid(x, is_empty = TRUE))
 
   dplyr::select_if(x,
                    function(x, ...) {
@@ -685,8 +595,9 @@ remove_constant.tiqqle_wide <- function(x,
 #' @param fill_gap Logischer Wert, ob entstehende \emph{NA}-Werte mittels
 #'   \code{\link{fill}} aufgefuellt werden (Default: \emph{FALSE}, d.h. sie
 #'   werden nicht veraendert).
-#' @param by String mit dem zu verwendenden Zeitintervall (Default: \emph{"sec},
-#'   d.h. Sekundenintervall). Siehe \code{\link{seq.POSIXt}} fuer Details.
+#' @param by String mit dem zu verwendenden Zeitintervall (Default:
+#'   \emph{"sec"}, d.h. Sekundenintervall). Siehe \code{\link{seq.POSIXt}} fuer
+#'   Details.
 #'
 #' @return Regularisierter Tiqqle \code{x}.
 #'
@@ -699,6 +610,12 @@ regularize <- function(x,
                        insert_missing = TRUE,
                        fill_gap = FALSE,
                        by = "sec") {
+  
+  # Checkt Argumente
+  assertthat::assert_that(is_valid(x),
+                          assertthat::is.flag(insert_missing),
+                          assertthat::is.flag(fill_gap),
+                          assertthat::is.string(by))
 
   UseMethod("regularize")
 }
@@ -709,11 +626,6 @@ regularize.tiqqle_long <- function(x,
                                    insert_missing = TRUE,
                                    fill_gap = FALSE,
                                    by = "sec") {
-
-  # Checkt die Datentypen der Argumente
-  stopifnot(is_valid(x),
-            is.logical(insert_missing),
-            is.logical(fill_gap))
 
   if (insert_missing) {
 
@@ -759,11 +671,6 @@ regularize.tiqqle_wide <- function(x,
                                    insert_missing = TRUE,
                                    fill_gap = FALSE,
                                    by = "sec") {
-
-  # Checkt die Datentypen der Argumente
-  stopifnot(is_valid(x),
-            is.logical(insert_missing),
-            is.logical(fill_gap))
 
   res <- arrange2(x, .data$time)
 
@@ -822,6 +729,11 @@ thicken <- function(x,
                     fun = dplyr::first,
                     ...) {
 
+  # Checkt Argumente
+  assertthat::assert_that(is_valid(x),
+                          assertthat::is.number(interval_sec),
+                          is.function(fun))
+
   UseMethod("thicken")
 }
 
@@ -831,11 +743,6 @@ thicken.tiqqle_long <- function(x,
                                 interval_sec = 1,
                                 fun = dplyr::first,
                                 ...) {
-
-  # Checkt die Datentypen der Argumente
-  stopifnot(is_valid(x),
-            is.numeric(interval_sec),
-            is.function(fun))
 
   x %>%
     thicken_prepare(interval_sec) %>%
@@ -853,11 +760,6 @@ thicken.tiqqle_wide <- function(x,
                                 fun = dplyr::first,
                                 ...) {
 
-  # Checkt die Datentypen der Argumente
-  stopifnot(is_valid(x),
-            is.numeric(interval_sec),
-            is.function(fun))
-
   x %>%
     thicken_prepare(interval_sec) %>%
     # EVTL: parallel moeglich
@@ -868,6 +770,62 @@ thicken.tiqqle_wide <- function(x,
 }
 
 # Hilfsfunktionen --------------------------------------------------------------
+
+#' Letzter gueltiger Signalwert im breiten Format
+#'
+#' Hilfsfunktion zur Bestimmung des letzten oder naechsten Signalwerts im
+#' breiten Format.
+#'
+#' @param x Tiqqle, aus dem der gueltige Wert bestimmt wird.
+#' @param fill_na Logischer Wert, ob evtl. entstehende \emph{NA}-Werte mit dem
+#'   naechsten gueltigen Signalwert ersetzt werden (Default: \emph{TRUE}, d.h.
+#'   sie werden ersetzt).
+#' @param direction String mit zeitlicher Ersetzungsrichtung - entweder
+#'   \emph{"forward"} (Default: letzter gueltiger Wert ) oder \emph{"backward"}
+#'   (naechster gueltiger Wert).
+#'
+#' @return Tiqqle mit letzten gueltigen Signalwerten aus \code{x}.
+#'
+#' @seealso \code{\link{last_value.tiqqle_wide}}
+#'
+#' @keywords internal
+fill_signal_wide <- function(x,
+                             fill_na = TRUE,
+                             direction = "forward") {
+  
+  # Checkt Argumente
+  assertthat::assert_that(is_valid(x),
+                          assertthat::not_empty(x),
+                          assertthat::is.flag(fill_na),
+                          assertthat::is.string(direction),
+                          
+                          direction %in% c("forward", "backward"))
+  
+  y <- dplyr::slice(x,
+                    ifelse(direction == "forward",
+                           dplyr::n(),
+                           1))
+  
+  if (nrow(x) == 0) {
+    
+    # NAs einfuegen, falls keine Werte existieren
+    x <- x[1, ]
+    
+  } else if (fill_na && purrr::some(y, is.na)) {
+    
+    # Auffuellen, falls noetig
+    x <-
+      tidyr::fill(x,
+                  .direction = ifelse(direction == "forward",
+                                      "down",
+                                      "up"))
+  }
+  
+  dplyr::slice(x,
+               ifelse(direction == "forward",
+                      dplyr::n(),
+                      1))
+}
 
 #' Vorbereitung zeitlicher Signalaggregation
 #'
@@ -885,10 +843,6 @@ thicken.tiqqle_wide <- function(x,
 #' @importFrom magrittr %>%
 thicken_prepare <- function(x,
                             interval_sec = 1) {
-
-  # Checkt die Datentypen der Argumente
-  stopifnot(is_valid(x),
-            is.numeric(interval_sec))
 
   unit <- paste(interval_sec, "sec")
 

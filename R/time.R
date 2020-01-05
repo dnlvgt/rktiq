@@ -14,9 +14,9 @@
 all_days <- function(int_start,
                      int_end) {
 
-  # Checkt die Datentypen der Argumente
-  stopifnot(lubridate::is.POSIXct(int_start),
-            lubridate::is.POSIXct(int_end))
+  # Checkt Argumente
+  assertthat::assert_that(is_temporal(int_start, is_strict = TRUE),
+                          is_temporal(int_end, is_strict = TRUE))
 
   seq(int_start,
       int_end,
@@ -42,11 +42,11 @@ all_days <- function(int_start,
 all_weekends <- function(int_start,
                          int_end,
                          is_truncated = TRUE) {
-
-  # Checkt die Datentypen der Argumente
-  stopifnot(lubridate::is.POSIXct(int_start),
-            lubridate::is.POSIXct(int_end),
-            is.logical(is_truncated))
+  
+  # Checkt Argumente
+  assertthat::assert_that(is_temporal(int_start, is_strict = TRUE),
+                          is_temporal(int_end, is_strict = TRUE),
+                          assertthat::is.flag(is_truncated))
 
   res <-
     tibble::tibble(start =
@@ -97,12 +97,12 @@ relative_time <- function(x,
                           units = "secs",
                           origin = lubridate::origin,
                           as_datetime = TRUE) {
-
-  # Checkt die Datentypen der Argumente
-  stopifnot(lubridate::is.POSIXct(x),
-            is.character(units),
-            lubridate::is.POSIXct(origin),
-            is.logical(as_datetime))
+  
+  # Checkt Argumente
+  assertthat::assert_that(is_temporal(x, is_strict = TRUE),
+                          assertthat::is.string(units),
+                          is_temporal(origin, is_strict = TRUE),
+                          assertthat::is.flag(as_datetime))
 
   res <- diff_time(min(x), x, units = units)
 

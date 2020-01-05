@@ -9,11 +9,11 @@ harmonize_event(x, start_var = "start", end_var = "end", ...)
 \arguments{
 \item{x}{Dataframe, der in die standardisierte Form gebracht werden soll.}
 
-\item{start_var}{Spaltenname (Symbol oder Character) der Variable mit dem
+\item{start_var}{Spaltenname (Symbol oder String) der Variable mit dem
 Zeitpunkt des Eintretens des Ereignisses im Dataframe \code{x} (Default:
 \emph{"start"}).}
 
-\item{end_var}{Spaltenname (Symbol oder Character) der Variabele mit dem
+\item{end_var}{Spaltenname (Symbol oder String) der Variabele mit dem
 Zeitpunkt des Aufhebens des Ereignisses im Dataframe \code{x} (Default:
 \emph{"end"}).}
 

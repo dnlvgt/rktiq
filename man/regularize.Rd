@@ -17,8 +17,9 @@ eingefuegt werden, fuer die kein expliziter regulaerer Wert vorliegt
 \code{\link{fill}} aufgefuellt werden (Default: \emph{FALSE}, d.h. sie
 werden nicht veraendert).}
 
-\item{by}{String mit dem zu verwendenden Zeitintervall (Default: \emph{"sec},
-d.h. Sekundenintervall). Siehe \code{\link{seq.POSIXt}} fuer Details.}
+\item{by}{String mit dem zu verwendenden Zeitintervall (Default:
+\emph{"sec"}, d.h. Sekundenintervall). Siehe \code{\link{seq.POSIXt}} fuer
+Details.}
 }
 \value{
 Regularisierter Tiqqle \code{x}.

@@ -20,10 +20,10 @@ event_match_seq(
 
 \item{y}{Dataframe mit der Endereignismenge \code{y}.}
 
-\item{time_var_x}{Spaltenname (Symbol oder Character) der Zeitvariable in
+\item{time_var_x}{Spaltenname (Symbol oder String) der Zeitvariable in
 Dataframe \code{x} (Default: \emph{"time"}).}
 
-\item{time_var_y}{Spaltenname (Symbol oder Character) der Zeitvariable in
+\item{time_var_y}{Spaltenname (Symbol oder String) der Zeitvariable in
 Dataframe \code{y} (Default: \emph{"time"}).}
 
 \item{last_before}{Logischer Wert, ob letzter Startzeitpunkt vor Endzeitpunkt
